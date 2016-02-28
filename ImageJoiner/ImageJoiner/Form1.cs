@@ -9,16 +9,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using ImageJoiner.CustomExceptions;
+using System.Text.RegularExpressions;
 
 namespace ImageJoiner
 {
     public partial class Form1 : Form
     {
-        protected bool validData;
+        bool validData;
         int currentListIndex = 0;
         Point startingPoint = Point.Empty;
         Bitmap finalImage;
-        Point finallImagePosition = Point.Empty;
         Point movingPoint = Point.Empty;
         bool panning = false;
         public Form1()
@@ -67,16 +68,58 @@ namespace ImageJoiner
             {
                 if (validData)
                 {
-                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                    foreach (string file in files)
+                    try
                     {
-                        FileInfo fi = new FileInfo(file);
-                        imagesList.Images.Add(Image.FromFile(file));
-                        ListViewItem item = new ListViewItem();
-                        item.Text = file;
-                        item.ImageIndex = currentListIndex;
-                        ++currentListIndex;
-                        listViewImages.Items.Add(item);
+                        int imageWidth;
+                        int imageHeight;
+                        string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                        int filesCount = files.Count(s => s != null);
+                        ListViewItem[] items = new ListViewItem[filesCount];
+                        Image[] images = new Image[filesCount];
+                        if (listViewImages.Items.Count > 0)
+                        {
+                            var tempImage = Image.FromFile(listViewImages.Items[0].Text);
+                            imageWidth = tempImage.Width;
+                            imageHeight = tempImage.Height;
+                        }
+                        else
+                        {
+                            var tempImage = Image.FromFile(files[0]);
+                            imageWidth = tempImage.Width;
+                            imageHeight = tempImage.Height;
+                        }
+                        for (int i = 0; i < filesCount; ++i)
+                        {
+                            FileInfo fi = new FileInfo(files[i]);
+                            if(!validateFileName(Path.GetFileNameWithoutExtension(files[i])))
+                            {
+                                throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n row_column.extension (for example 0_1.png)", Path.GetFileName(files[i])));
+                            }
+                            images[i] = Image.FromFile(files[i]);
+                            if((images[i].Height != imageHeight)||(images[i].Width != imageWidth))
+                            {
+                                throw new ImagesDifferentSizeExcpetion("Images are not the same size");
+                            }
+                            ListViewItem item = new ListViewItem();
+                            item.Text = files[i];
+                            item.ImageIndex = currentListIndex;
+                            ++currentListIndex;
+                            items[i] = item;
+                        }
+                        listViewImages.Items.AddRange(items);
+                        imagesList.Images.AddRange(images);
+                    }
+                    catch(WrongFileNameException wrongFileNameException)
+                    {
+                        MessageBox.Show(wrongFileNameException.Message);
+                    }
+                    catch(ImagesDifferentSizeExcpetion imagesDifferentSizeExcpetion)
+                    {
+                        MessageBox.Show(imagesDifferentSizeExcpetion.Message);
+                    }
+                    catch(Exception exception)
+                    {
+                        MessageBox.Show(exception.Message);
                     }
                 }
             }
@@ -177,10 +220,14 @@ namespace ImageJoiner
         {
             if (panning && (finalImage != null))
             {
-                movingPoint = new Point(finallImagePosition.X + e.Location.X - startingPoint.X,
-                                        finallImagePosition.Y + e.Location.Y - startingPoint.Y);
-                finallImagePosition = new Point(finallImagePosition.X + e.Location.X - startingPoint.X, finallImagePosition.Y + e.Location.Y - startingPoint.Y);
-                pictureBoxFinallImage.Invalidate();
+                int newX = movingPoint.X + e.Location.X - startingPoint.X;
+                int newY = movingPoint.Y + e.Location.Y - startingPoint.Y;
+                if (newX < (-finalImage.Width + pictureBoxFinallImage.Width)) newX = (-finalImage.Width + pictureBoxFinallImage.Width);
+                else if (newX > 0) newX = 0;
+                if (newY < (-finalImage.Height + pictureBoxFinallImage.Height)) newY = (-finalImage.Height + pictureBoxFinallImage.Height);
+                else if (newY > 0) newY = 0;
+                movingPoint = new Point(newX, newY);
+                pictureBoxFinallImage.Invalidate(); // Calls pictureBoxFinallImage_Paint event
             }
         }
 
@@ -195,6 +242,21 @@ namespace ImageJoiner
             {
                 e.Graphics.Clear(Color.Black);
                 e.Graphics.DrawImage(finalImage, movingPoint);
+            }
+        }
+
+        public bool validateFileName(string filename)
+        {
+            string pattern = @"\d+_\d+$";
+            Regex rgx = new Regex(pattern, RegexOptions.IgnoreCase);
+            MatchCollection matches = rgx.Matches(filename);
+            if (matches.Count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
     }

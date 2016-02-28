@@ -31,11 +31,10 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.listViewImages = new System.Windows.Forms.ListView();
+            this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.imagesList = new System.Windows.Forms.ImageList(this.components);
             this.pictureBoxFinallImage = new System.Windows.Forms.PictureBox();
-            this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.buttonJoinImages = new System.Windows.Forms.Button();
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             this.SuspendLayout();
             // 
@@ -53,6 +52,10 @@
             this.listViewImages.View = System.Windows.Forms.View.SmallIcon;
             this.listViewImages.DragDrop += new System.Windows.Forms.DragEventHandler(this.listViewImages_DragDrop);
             this.listViewImages.DragEnter += new System.Windows.Forms.DragEventHandler(this.listViewImages_DragEnter);
+            // 
+            // columnHeader1
+            // 
+            this.columnHeader1.Width = -1;
             // 
             // imagesList
             // 
@@ -75,10 +78,6 @@
             this.pictureBoxFinallImage.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureBoxFinallImage_MouseMove);
             this.pictureBoxFinallImage.MouseUp += new System.Windows.Forms.MouseEventHandler(this.pictureBoxFinallImage_MouseUp);
             // 
-            // columnHeader1
-            // 
-            this.columnHeader1.Width = -1;
-            // 
             // buttonJoinImages
             // 
             this.buttonJoinImages.Location = new System.Drawing.Point(13, 388);
@@ -88,11 +87,6 @@
             this.buttonJoinImages.Text = "Join images";
             this.buttonJoinImages.UseVisualStyleBackColor = true;
             this.buttonJoinImages.Click += new System.EventHandler(this.buttonJoinImages_Click);
-            // 
-            // contextMenuStrip1
-            // 
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
             // 
             // Form1
             // 
@@ -117,7 +111,6 @@
         private System.Windows.Forms.PictureBox pictureBoxFinallImage;
         private System.Windows.Forms.ColumnHeader columnHeader1;
         private System.Windows.Forms.Button buttonJoinImages;
-        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
     }
 }
 
