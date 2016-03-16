@@ -259,5 +259,26 @@ namespace ImageJoiner
                 return false;
             }
         }
+
+        private void buttonRemoveImages_Click(object sender, EventArgs e)
+        {
+            if (listViewImages.Items.Count != 0)
+            {
+                listViewImages.Items.Clear();
+                imagesList.Images.Clear();
+                if (finalImage != null)
+                {
+                    finalImage.Dispose();
+                    finalImage = null;
+                }
+                pictureBoxFinallImage.Image = null;
+                pictureBoxFinallImage.Invalidate();
+                currentListIndex = 0;
+            }
+            else
+            {
+                MessageBox.Show("There are no images to remove");
+            }
+        }
     }
 }
