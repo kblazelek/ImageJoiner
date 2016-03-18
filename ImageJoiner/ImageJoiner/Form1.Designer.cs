@@ -29,13 +29,13 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.listViewImages = new System.Windows.Forms.ListView();
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.imagesList = new System.Windows.Forms.ImageList(this.components);
             this.pictureBoxFinallImage = new System.Windows.Forms.PictureBox();
             this.buttonJoinImages = new System.Windows.Forms.Button();
             this.buttonRemoveImages = new System.Windows.Forms.Button();
+            this.progressBar = new System.Windows.Forms.ProgressBar();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             this.SuspendLayout();
             // 
@@ -60,9 +60,9 @@
             // 
             // imagesList
             // 
-            this.imagesList.ImageStream = ((System.Windows.Forms.ImageListStreamer)(resources.GetObject("imagesList.ImageStream")));
+            this.imagesList.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
+            this.imagesList.ImageSize = new System.Drawing.Size(16, 16);
             this.imagesList.TransparentColor = System.Drawing.Color.Transparent;
-            this.imagesList.Images.SetKeyName(0, "asd.bmp");
             // 
             // pictureBoxFinallImage
             // 
@@ -99,11 +99,20 @@
             this.buttonRemoveImages.UseVisualStyleBackColor = true;
             this.buttonRemoveImages.Click += new System.EventHandler(this.buttonRemoveImages_Click);
             // 
+            // progressBar
+            // 
+            this.progressBar.Location = new System.Drawing.Point(80, 180);
+            this.progressBar.Name = "progressBar";
+            this.progressBar.Size = new System.Drawing.Size(100, 23);
+            this.progressBar.TabIndex = 4;
+            this.progressBar.Visible = false;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 561);
+            this.Controls.Add(this.progressBar);
             this.Controls.Add(this.buttonRemoveImages);
             this.Controls.Add(this.buttonJoinImages);
             this.Controls.Add(this.pictureBoxFinallImage);
@@ -124,6 +133,7 @@
         private System.Windows.Forms.ColumnHeader columnHeader1;
         private System.Windows.Forms.Button buttonJoinImages;
         private System.Windows.Forms.Button buttonRemoveImages;
+        private System.Windows.Forms.ProgressBar progressBar;
     }
 }
 
