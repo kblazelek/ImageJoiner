@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using ImageJoiner.CustomExceptions;
 using System.Text.RegularExpressions;
@@ -16,27 +12,93 @@ namespace ImageJoiner
 {
     public partial class Form1 : Form
     {
-        // sprawdzic czy nie powalilem rows z columns
-        bool validData;
-        int smallImageWidth = 0;
-        int smallImageHeight = 0;
-        int currentRow = 0;
-        int currentColumn = 0;
-        int maxWidth = 0;
-        int maxHeight = 0;
-        int bufferColumns = 0;
-        int bufferRows = 0;
-        Point startingPoint = Point.Empty;
-        Bitmap bufferImage;
-        Point movingPoint = Point.Empty;
-        Point positionInWholeImage = Point.Empty;
-        bool panning = false;
+        private bool validData;
+        private int smallImageWidth = 0;
+        private int smallImageHeight = 0;
+        private int currentRow = 0;
+        private int currentColumn = 0;
+        private int maxWidth = 0;
+        private int maxHeight = 0;
+        private int bufferColumns = 0;
+        private int bufferRows = 0;
+        private int maxRowNumber = 0;
+        private int maxColumnNumber = 0;
+        private Point panningStartingPoint = Point.Empty;
+        private Point pictureBoxPositionRelatedToWholePicture = Point.Empty;
+        private Point pictureBoxPositionRelatedToBuffer = Point.Empty;
+        private Bitmap bufferImage;
+        private bool panning = false;
+
+        #region Accessors
+
+        public int MaxWidth
+        {
+            get { return maxWidth; }
+            set
+            {
+                maxWidth = value;
+                labelWidth.Text = "Width: " + MaxWidth.ToString();
+            }
+        }
+
+        public int MaxHeight
+        {
+            get { return maxHeight; }
+            set
+            {
+                maxHeight = value;
+                labelHeight.Text = "Height: " + MaxHeight.ToString();
+            }
+        }
+
+        public int MaxRowNumber
+        {
+            get { return maxRowNumber; }
+            set
+            {
+                maxRowNumber = value;
+                if(listViewImages.Items.Count > 0)
+                {
+                    labelRows.Text = "Rows: " + (MaxRowNumber + 1).ToString();
+                }
+                else
+                {
+                    labelRows.Text = "Rows: 0";
+                }
+            }
+        }   
+
+        public int MaxColumnNumber
+        {
+            get { return maxColumnNumber; }
+            set
+            {
+                maxColumnNumber = value;
+                if (listViewImages.Items.Count > 0)
+                {
+                    labelColumns.Text = "Columns: " + (MaxColumnNumber + 1).ToString();
+                }
+                else
+                {
+                    labelColumns.Text = "Columns: 0";
+                }
+            }
+        }
+
+        #endregion
+        #region Constructor
         public Form1()
         {
             InitializeComponent();
         }
-
-        // Zdarzenie, które ma miejsce gdy użytkownik przeciągnię jeden lub więcej plików na listę, ale jeszcze nie upuści ich.
+        #endregion
+        #region Event handlers
+        /// <summary>
+        /// Zdarzenie, które ma miejsce gdy użytkownik przeciągnię jeden lub więcej plików na listę, ale jeszcze nie upuści ich.
+        /// Wyświetla ikonkę informującą o tym, czy pliki można upuścić lub nie.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void listViewImages_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -72,51 +134,59 @@ namespace ImageJoiner
             }
         }
 
-        // Zdarzenie, które ma miejsce, gdy użytkownik upuści jeden lub więcej plików na listę
+        /// <summary>
+        /// Zdarzenie, które ma miejsce, gdy użytkownik upuści jeden lub więcej obrazów na listę. Sprawdza, czy obrazy mają takie same wymiary.
+        /// Gdy wszystkie obrazy są poprawne, to ścieżki do nich wraz z minuaturkami obrazów są dodawane do list.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void listViewImages_DragDrop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 if (validData)
                 {
+                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    Array.Sort(files);
+                    int filesCount = files.Count(s => s != null);
+                    ListViewItem[] items = new ListViewItem[filesCount];
+                    Image[] images = new Image[filesCount];
                     try
                     {
-                        string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                        Array.Sort(files);
-                        int filesCount = files.Count(s => s != null);
-                        ListViewItem[] items = new ListViewItem[filesCount];
-                        Image[] images = new Image[filesCount];
                         int currentListIndex = listViewImages.Items.Count;
                         if (listViewImages.Items.Count > 0)
                         {
                             var tempImage = Image.FromFile(listViewImages.Items[0].Text);
                             smallImageWidth = tempImage.Width;
                             smallImageHeight = tempImage.Height;
+                            tempImage.Dispose();
+                            tempImage = null;
                         }
                         else
                         {
                             var tempImage = Image.FromFile(files[0]);
                             smallImageWidth = tempImage.Width;
                             smallImageHeight = tempImage.Height;
+                            tempImage.Dispose();
+                            tempImage = null;
                         }
                         progressBar.Visible = true;
                         progressBar.Minimum = 1;
                         progressBar.Maximum = filesCount;
                         progressBar.Value = 1;
                         progressBar.Step = 1;
-                        int tempMaxRowNumber = 0;
-                        int tempMaxColumnNumber = 0;
                         int tempRowNumber = 0;
                         int tempColumnNumber = 0;
+                        int tempMaxColumnNumber = 0;
+                        int tempMaxRowNumber = 0;
                         for (int i = 0; i < filesCount; ++i)
                         {
-                            FileInfo fi = new FileInfo(files[i]);
-                            if(!validateFileName(Path.GetFileNameWithoutExtension(files[i])))
+                            if (!ValidateFileName(Path.GetFileNameWithoutExtension(files[i])))
                             {
                                 throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n YnnnnXnnnn.extension (for example Y0000X0000.png)", Path.GetFileName(files[i])));
                             }
                             images[i] = Image.FromFile(files[i]);
-                            if((images[i].Height != smallImageHeight) ||(images[i].Width != smallImageWidth))
+                            if ((images[i].Height != smallImageHeight) || (images[i].Width != smallImageWidth))
                             {
                                 throw new ImagesDifferentSizeExcpetion("Images are not the same size");
                             }
@@ -126,7 +196,7 @@ namespace ImageJoiner
                             {
                                 tempMaxRowNumber = tempRowNumber;
                             }
-                            if(tempMaxColumnNumber < tempColumnNumber)
+                            if (tempMaxColumnNumber < tempColumnNumber)
                             {
                                 tempMaxColumnNumber = tempColumnNumber;
                             }
@@ -137,22 +207,33 @@ namespace ImageJoiner
                             items[i] = item;
                             progressBar.PerformStep();
                         }
-                        maxWidth = (tempMaxRowNumber + 1) * smallImageWidth;
-                        maxHeight = (tempMaxColumnNumber + 1) * smallImageHeight;
+                        MaxWidth = (tempMaxRowNumber + 1) * smallImageWidth;
+                        MaxHeight = (tempMaxColumnNumber + 1) * smallImageHeight;
                         listViewImages.Items.AddRange(items);
                         imagesList.Images.AddRange(images);
+                        MaxColumnNumber = tempMaxColumnNumber;
+                        MaxRowNumber = tempMaxRowNumber;
                         progressBar.Visible = false;
                     }
-                    catch(WrongFileNameException wrongFileNameException)
+                    catch (WrongFileNameException wrongFileNameException)
                     {
+                        if (files != null) files = null;
+                        if (items != null) items = null;
+                        if (images != null) images = null;
                         MessageBox.Show(wrongFileNameException.Message);
                     }
-                    catch(ImagesDifferentSizeExcpetion imagesDifferentSizeExcpetion)
+                    catch (ImagesDifferentSizeExcpetion imagesDifferentSizeExcpetion)
                     {
+                        if (files != null) files = null;
+                        if (items != null) items = null;
+                        if (images != null) images = null;
                         MessageBox.Show(imagesDifferentSizeExcpetion.Message);
                     }
-                    catch(Exception exception)
+                    catch (Exception exception)
                     {
+                        if (files != null) files = null;
+                        if (items != null) items = null;
+                        if (images != null) images = null;
                         MessageBox.Show(exception.Message);
                     }
                     finally
@@ -163,70 +244,179 @@ namespace ImageJoiner
             }
         }
 
-        // Zdarzenie, które ma miejsce po kliknięciu przycisku "Join Images". Jeżeli istnieją obrazy w liście, to wywołuje funkcję łączącą je.
+        /// <summary>
+        /// Zdarzenie, które ma miejsce po kliknięciu przycisku "Join Images". Wywołuje funkcję łączącą obrazy.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonJoinImages_Click(object sender, EventArgs e)
         {
-            int imagesCount = listViewImages.Items.Count;
-            if (imagesCount > 0)
+            if (listViewImages.Items.Count > 0)
             {
-                //files = listViewImages.Items.Cast<ListViewItem>().Select(item => item.Text).ToArray();
-                pictureBoxFinallImage.Image = joinImages(0,0);
+                JoinImages();
             }
             else
             {
                 MessageBox.Show("There are no images to join.");
+            } 
+        }
+
+
+        /// <summary>
+        /// Włącza tryb przeciągania (panning = true), który umożliwia przeglądanie obrazu.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxFinallImage_MouseDown(object sender, MouseEventArgs e)
+        {
+            panning = true;
+            panningStartingPoint = e.Location;
+        }
+
+        /// <summary>
+        /// Zdarzenie, na skutek którego zostaje przesunięta wyświetlana część obrazka zgodnie z ruchem myszki.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxFinallImage_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (panning && (bufferImage != null))
+            {
+                CalulatePositionInWholeImage(e.Location);
+                int tempRow = currentRow;
+                int tempColumn = currentColumn;
+                CalculateRowAndColumnBasedOnCurrentPosition();
+                if (tempRow != currentRow || tempColumn != currentColumn)
+                {
+                    LoadImagesIntoBuffer();
+                }
+                CalculatePictureBoxPositionRelatedToBuffer();
+                pictureBoxFinallImage.Invalidate(); // Ponownie rysuje obraz
             }
         }
-        // Funkcja łącząca obrazki w 1.
-        private Bitmap joinImages(int startRowNumber, int startColumnNumber)
+        /// <summary>
+        /// Zdarzenie wywoływane po puszczeniu przycisku myszy, na skutek którego obraz nie ma być dalej przesuwany.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxFinallImage_MouseUp(object sender, MouseEventArgs e)
         {
-            // Images contain images, rectangles contain image positions
+            panning = false;
+        }
+
+        /// <summary>
+        /// Rysuje wyświetlaną część obrazu.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxFinallImage_Paint(object sender, PaintEventArgs e)
+        {
+            if (bufferImage != null)
+            {
+                e.Graphics.Clear(Color.Black);
+                e.Graphics.DrawImage(bufferImage, new Point(-pictureBoxPositionRelatedToBuffer.X, -pictureBoxPositionRelatedToBuffer.Y));
+            }
+        }
+        /// <summary>
+        /// Wywołuje metodę, która czyści listę obrazów, bufor i zmienne pomocnicze.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonRemoveImages_Click(object sender, EventArgs e)
+        {
+            RemoveAllImages();
+        }
+        /// <summary>
+        /// Zdarzenie wywoływane po zmianie rozmiaru wyświetlanej części ekranu.
+        /// Powoduje ponowne przeliczenie wszystkich zmiennych pomocnicznych przy przewijaniu ekranu.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxFinallImage_SizeChanged(object sender, EventArgs e)
+        {
+            JoinImages();
+        }
+        #endregion
+        #region Helper methods
+        /// <summary>
+        /// Funkcja ładująca obrazki do bufora i wyświetlająca lewy górny róg obrazu.
+        /// </summary>
+        private void JoinImages()
+        {
+            if (listViewImages.Items.Count > 0)
+            {
+                currentRow = 0;
+                currentColumn = 0;
+                panningStartingPoint = Point.Empty;
+                pictureBoxPositionRelatedToWholePicture = Point.Empty;
+                pictureBoxPositionRelatedToBuffer = Point.Empty;
+                CalculateBufferRowsAndColumns();
+                LoadImagesIntoBuffer();
+                pictureBoxFinallImage.Invalidate();
+            }
+        }
+        /// <summary>
+        /// Funkcja ładująca do bufora obrazki
+        /// </summary>
+        private void LoadImagesIntoBuffer()
+        {
             List<Tuple<Image, Rectangle>> imagesWithRectangles = new List<Tuple<Image, Rectangle>>();
-            CalculateImagesToExceedWidthAndHeight();
             List<string> files = GetBufferImages();
             string fileNameWithoutExtension;
             int row, column;
             int xPosition = 0;
             int yPosition = 0;
-
+            int columnShift = 0;
+            int rowShift = 0;
+            if(currentColumn >= 2)
+            {
+                if (MaxColumnNumber - currentColumn <= 2)
+                {
+                    columnShift = MaxColumnNumber - 2;
+                }
+                else
+                {
+                    columnShift = currentColumn - 1;
+                }
+            }
+            if(currentRow >=2)
+            {
+                if (MaxRowNumber - currentRow <= 2)
+                {
+                    rowShift = MaxRowNumber - 2;
+                }
+                else
+                {
+                    rowShift = currentRow - 1;
+                }
+            }
             try
             {
-                int width = 0;
-                int height = 0;
-
                 foreach (string image in files)
                 {
+                    // Pozyskiwanie numeru wiersza i kolumny z nazwy pliku
                     fileNameWithoutExtension = Path.GetFileNameWithoutExtension(image);
                     row = GetRowFromFileName(fileNameWithoutExtension);
                     column = GetColumnFromFileName(fileNameWithoutExtension);
-                    //create a Bitmap from the file and add it to the list
+
+                    // Obliczanie pozycji małego obrazka w buforze i dodanie go do tymczasowej listy
                     Bitmap bitmap = new Bitmap(image);
-                    //update the size of the final bitmap
-                    xPosition = column * bitmap.Width;
-                    yPosition = row * bitmap.Height;
-                    if (xPosition + bitmap.Width > width) width = xPosition + bitmap.Width;
-                    if (yPosition + bitmap.Height > height) height = yPosition + bitmap.Height;
+                    xPosition = (column - columnShift) * bitmap.Width;
+                    yPosition = (row - rowShift) * bitmap.Height;
                     Tuple<Image, Rectangle> imageWithRectangle = new Tuple<Image, Rectangle>(bitmap, new Rectangle(xPosition, yPosition, bitmap.Width, bitmap.Height));
                     imagesWithRectangles.Add(imageWithRectangle);
                 }
 
-                //create a bitmap to hold the combined image
-                bufferImage = new Bitmap(width, height);
-
-                //get a graphics object from the image so we can draw on it
+                // Utworzenie buforu z załadowanych obrazków
+                bufferImage = new Bitmap(bufferColumns * smallImageWidth, bufferRows * smallImageHeight);
                 using (Graphics g = Graphics.FromImage(bufferImage))
                 {
-                    //set background color
                     g.Clear(Color.Black);
-
-                    //go through each image and draw it on the final image
                     foreach (var imageWithRectangle in imagesWithRectangles)
                     {
                         g.DrawImage(imageWithRectangle.Item1, imageWithRectangle.Item2);
                     }
                 }
-
-                return bufferImage;
             }
             catch (Exception ex)
             {
@@ -246,62 +436,71 @@ namespace ImageJoiner
             }
         }
 
-        // Włącza tryb przeciągania (panning = true), który umożliwia przeglądanie zdjęcia
-        private void pictureBoxFinallImage_MouseDown(object sender, MouseEventArgs e)
-        {
-            panning = true;
-            startingPoint = e.Location;
-        }
-
-        // Wylicza którą część obrazu wyświetlić i wywołuje metodę odpowiedzialną za rysowanie obrazu
-        private void pictureBoxFinallImage_MouseMove(object sender, MouseEventArgs e)
-        {
-            // Wziąć pod uwagę maxWidht i maxHeight, odświeżyć bufor
-            if (panning && (bufferImage != null))
-            {
-                CalulatePositionInWholeImage(e.Location);
-                pictureBoxFinallImage.Invalidate(); // Wywołuje zdarzenie pictureBoxFinallImage_Paint
-                int tempRow = currentRow;
-                int tempColumn = currentColumn;
-                CalculateRowAndColumnBasedOnPosition();
-                if(tempRow != currentRow || tempColumn != currentColumn)
-                {
-                    pictureBoxFinallImage.Image = joinImages(currentRow, currentColumn);
-                    pictureBoxFinallImage.Invalidate();
-                }
-            }
-        }
-
-        // Oblicza pozycję lewego górnego rogu małego obrazka w odniesieniu do całego obrazka
+        /// <summary>
+        /// Oblicza pozycję lewego górnego rogu pictureboxa w odniesieniu do całego obrazu.
+        /// </summary>
+        /// <param name="currentPosition"></param>
         public void CalulatePositionInWholeImage(Point currentPosition)
         {
-            int newX = movingPoint.X + currentPosition.X - startingPoint.X;
-            int newY = movingPoint.Y + currentPosition.Y - startingPoint.Y;
-            if (newX < (-bufferImage.Width + pictureBoxFinallImage.Width)) newX = (-bufferImage.Width + pictureBoxFinallImage.Width);
-            else if (newX > 0) newX = 0;
-            if (newY < (-bufferImage.Height + pictureBoxFinallImage.Height)) newY = (-bufferImage.Height + pictureBoxFinallImage.Height);
-            else if (newY > 0) newY = 0;
-            positionInWholeImage = new Point(newX, newY);
-        }
-
-        // Po puszczeniu przycisku myszy obraz nie ma być dalej przesuwany
-        private void pictureBoxFinallImage_MouseUp(object sender, MouseEventArgs e)
-        {
-            panning = false;
-        }
-
-        // Rysuje wyświetlaną część obrazu
-        private void pictureBoxFinallImage_Paint(object sender, PaintEventArgs e)
-        {
-            if (bufferImage != null)
+            pictureBoxPositionRelatedToBuffer.X = currentPosition.X - panningStartingPoint.X;
+            pictureBoxPositionRelatedToBuffer.Y = currentPosition.Y - panningStartingPoint.Y;
+            int newX = pictureBoxPositionRelatedToWholePicture.X - currentPosition.X + panningStartingPoint.X;
+            int newY = pictureBoxPositionRelatedToWholePicture.Y - currentPosition.Y + panningStartingPoint.Y;
+            //Sprawdzanie, czy nowy X nie wykracza poza zakres
+            if (newX > MaxWidth - pictureBoxFinallImage.Width)
             {
-                e.Graphics.Clear(Color.Black);
-                e.Graphics.DrawImage(bufferImage, positionInWholeImage);
+                newX = MaxWidth - pictureBoxFinallImage.Width;
             }
+            else if (newX < 0)
+            {
+                newX = 0;
+            }
+
+            // Sprawdzanie, czy nowy Y nie wykracza poza zakres
+            if (newY > MaxHeight - pictureBoxFinallImage.Height)
+            {
+                newY = MaxHeight - pictureBoxFinallImage.Height;
+            }
+            else if (newY < 0)
+            {
+                newY = 0;
+            }
+            pictureBoxPositionRelatedToWholePicture = new Point(newX, newY);
         }
 
-        // Spradza, czy podany plik ma nazwę w następującym formacie: YnnnnXnnnn, np Y0001X0001
-        public bool validateFileName(string filename)
+        /// <summary>
+        /// Oblicza położenie pictureboxa w odniesieniu do bufora.
+        /// </summary>
+        public void CalculatePictureBoxPositionRelatedToBuffer()
+        {
+            int relativeX = pictureBoxPositionRelatedToWholePicture.X % smallImageWidth;
+            int relativeY = pictureBoxPositionRelatedToWholePicture.Y % smallImageHeight;
+            if(currentColumn == MaxColumnNumber)
+            {
+                relativeX += (bufferColumns - 1) * smallImageWidth;
+            }
+            else if(currentColumn > 0)
+            {
+                relativeX += smallImageWidth;
+            }
+            if(currentRow == MaxRowNumber)
+            {
+                relativeY += (bufferRows - 1) * smallImageHeight;
+            }
+            else if(currentRow > 0)
+            {
+                relativeY += smallImageHeight;
+            }
+            pictureBoxPositionRelatedToBuffer.X = relativeX;
+            pictureBoxPositionRelatedToBuffer.Y = relativeY;
+        }
+
+        /// <summary>
+        /// Spradza, czy podany plik ma nazwę w następującym formacie: YnnnnXnnnn, np Y0000X0000
+        /// </summary>
+        /// <param name="filename"></param>
+        /// <returns></returns>
+        public bool ValidateFileName(string filename)
         {
             string pattern = @"Y\d{4}X\d{4}$";
             Regex rgx = new Regex(pattern, RegexOptions.IgnoreCase);
@@ -316,31 +515,72 @@ namespace ImageJoiner
             }
         }
 
-        // Zwraca numer kolumny na podstawie nazwy pliku
+        /// <summary>
+        /// Zwraca numer kolumny na podstawie nazwy pliku.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
         public int GetColumnFromFileName(string fileName)
         {
-            return int.Parse(fileName.Substring(1, 4)); ;
+            return int.Parse(fileName.Substring(6, 4));
         }
 
-        // Zwraca numer wiersza na podstawie nazwy pliku
+        /// <summary>
+        /// Zwraca numer wiersza na podstawie nazwy pliku.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
         public int GetRowFromFileName(string fileName)
         {
-            return int.Parse(fileName.Substring(6, 4)); ;
+            return int.Parse(fileName.Substring(1, 4));
         }
 
-        // Returns locations of images used in buffer
+        /// <summary>
+        /// Zwraca lokalizacje obrazow potrzebnych do stworzenia bufora.
+        /// </summary>
+        /// <returns></returns>
         public List<string> GetBufferImages()
         {
             List<string> fileNames = new List<string>();
             string fileNameToFind = "";
-            string fileNameFound = "";
             ListViewItem listViewItem;
-            for(int i = currentRow; i<= (currentRow + bufferColumns); ++i)
+            int startingColumn, startingRow;
+
+            // Wyznaczania poczatkowej kolumny dla bufora
+            if((currentColumn - 1) < 0)
             {
-                for(int j = currentColumn; j<=(currentColumn +bufferRows); ++j)
+                startingColumn = 0;
+            }
+            else if((currentColumn + bufferColumns - 1) > MaxColumnNumber)
+            {
+                startingColumn = MaxColumnNumber - bufferColumns + 1;
+            }
+            else
+            {
+                startingColumn = currentColumn - 1;
+            }
+
+            // Wyznaczanie poczatkowego wiersza dla bufora
+            if ((currentRow - 1) < 0)
+            {
+                startingRow = 0;
+            }
+            else if ((currentRow + bufferRows - 1) > MaxRowNumber)
+            {
+                startingRow = MaxRowNumber - bufferRows + 1;
+            }
+            else
+            {
+                startingRow = currentRow - 1;
+            }
+            int endingRow = startingRow + bufferRows - 1;
+            int endingColumn = startingColumn + bufferColumns - 1;
+            // Wyszukiwanie potrzebnych obrazow i dodawanie ich lokalizacji do listy
+            for (int i = startingRow; i <= endingRow; ++i)
+            {
+                for (int j = startingColumn; j <= endingColumn; ++j)
                 {
-                    fileNameFound = "";
-                    fileNameToFind = "Y" + j.ToString().PadLeft(4, '0') + "X" + i.ToString().PadLeft(4, '0');
+                    fileNameToFind = "Y" + i.ToString().PadLeft(4, '0') + "X" + j.ToString().PadLeft(4, '0');
                     listViewItem =  listViewImages.Items.Cast<ListViewItem>().FirstOrDefault(item => Path.GetFileNameWithoutExtension(item.Text) == fileNameToFind);
                     if(listViewItem != null)
                     {
@@ -352,106 +592,112 @@ namespace ImageJoiner
             return fileNames;
         }
 
-        // Oblicza wiersz i kolumnę na podstawie pozycji lewego górnego rogu wyświetlanej części obrazu (movingPoint)
-        private void CalculateRowAndColumnBasedOnPosition()
+        /// <summary>
+        /// Oblicza wiersz i kolumnę na podstawie położenia lewego górnego rogu pictureBoxa w odniesieniu do całego obrazu.
+        /// </summary>
+        private void CalculateRowAndColumnBasedOnCurrentPosition()
         {
-            if(positionInWholeImage.X <= smallImageWidth)
+            if(pictureBoxPositionRelatedToWholePicture.X <= smallImageWidth)
             {
-                if(positionInWholeImage.Y <= smallImageHeight)
+                if(pictureBoxPositionRelatedToWholePicture.Y <= smallImageHeight)
                 {
                     currentRow = 0;
                     currentColumn = 0;
                 }
                 else
                 {
-                    currentRow = 0;
-                    currentColumn = positionInWholeImage.Y / smallImageHeight + 1;
-                }
-            }
-            else
-            {
-                if(positionInWholeImage.Y <= smallImageHeight)
-                {
-                    currentRow = positionInWholeImage.X / smallImageWidth + 1;
+                    currentRow = (int)(pictureBoxPositionRelatedToWholePicture.Y / smallImageHeight);
                     currentColumn = 0;
                 }
+            }
+            else
+            {
+                if(pictureBoxPositionRelatedToWholePicture.Y <= smallImageHeight)
+                {
+                    currentRow = 0;
+                    currentColumn = (int)(pictureBoxPositionRelatedToWholePicture.X / smallImageWidth);
+                }
                 else
                 {
-                    currentRow = positionInWholeImage.X / smallImageWidth + 1;
-                    currentColumn = positionInWholeImage.Y / smallImageHeight + 1;
+                    currentRow =  (int)(pictureBoxPositionRelatedToWholePicture.Y / smallImageHeight);
+                    currentColumn = (int)(pictureBoxPositionRelatedToWholePicture.X / smallImageWidth);
                 }
             }
         }
-        // Liczy ile obrazów jest potrzebnych, aby były dłuższe w osi x i y od obszaru wyświetlania. Przdatne przy wyliczaniu bufora na obrazy
-        public void CalculateImagesToExceedWidthAndHeight()
+
+        /// <summary>
+        /// Funkcja licząca liczbę wierszy i kolumn dla bufora.
+        /// </summary>
+        public void CalculateBufferRowsAndColumns()
         {
-            // dodac sprawdzanie dzielenie przez 0
-            if(smallImageWidth > pictureBoxFinallImage.Width)
+            if(smallImageWidth >= pictureBoxFinallImage.Width)
             {
-                if(smallImageHeight > pictureBoxFinallImage.Height)
+                if(smallImageHeight >= pictureBoxFinallImage.Height)
                 {
-                    bufferColumns = 2;
-                    bufferRows = 2;
+                    bufferColumns = 3;
+                    bufferRows = 3;
                 }
                 else
                 {
-                    bufferColumns = 2;
-                    bufferRows = pictureBoxFinallImage.Height / smallImageHeight + 2;
+                    bufferColumns = 3;
+                    bufferRows = (int)(pictureBoxFinallImage.Height / smallImageHeight) + 3;
                 }
             }
             else
             {
-                if (smallImageHeight > pictureBoxFinallImage.Height)
+                if (smallImageHeight >= pictureBoxFinallImage.Height)
                 {
-                    bufferColumns = pictureBoxFinallImage.Width / smallImageWidth + 2;
-                    bufferRows = 2;
+                    bufferColumns = (int)(pictureBoxFinallImage.Width / smallImageWidth) + 3;
+                    bufferRows = 3;
                 }
                 else
                 {
-                    bufferColumns = pictureBoxFinallImage.Width / smallImageWidth + 2;
-                    bufferRows = pictureBoxFinallImage.Height / smallImageHeight + 2;
+                    bufferColumns = (int)(pictureBoxFinallImage.Width / smallImageWidth) + 3;
+                    bufferRows = (int)(pictureBoxFinallImage.Height / smallImageHeight) + 3;
                 }
             }
         }
 
-        // Wywołuje metodę, która czyści listę obrazów, wyświetlany obraz i zmienne pomocnicze
-        private void buttonRemoveImages_Click(object sender, EventArgs e)
-        {
-            RemoveAllImages();
-        }
-
-        // Czyści listę obrazów, wyświetlany obraz i zmienne pomocnicze
+        /// <summary>
+        /// Czyści listę obrazów, bufor i zmienne pomocnicze.
+        /// </summary>
         private void RemoveAllImages()
         {
-            if (listViewImages.Items.Count != 0)
+            if (listViewImages.Items.Count > 0)
             {
-                listViewImages.Dispose();
-                imagesList.Dispose();
+                listViewImages.Items.Clear();
+                imagesList.Images.Clear();
                 if (bufferImage != null)
                 {
                     bufferImage.Dispose();
+                    bufferImage = null;
+                    pictureBoxFinallImage.Invalidate(); // Odświeża obraz
                 }
                 if (pictureBoxFinallImage.Image != null)
                 {
                     pictureBoxFinallImage.Image.Dispose();
+                    pictureBoxFinallImage.Image = null;
                     pictureBoxFinallImage.Invalidate(); // Odświeża obraz
                 }
-                startingPoint = Point.Empty;
-                movingPoint = Point.Empty;
-                positionInWholeImage = Point.Empty;
+                panningStartingPoint = Point.Empty;
+                pictureBoxPositionRelatedToWholePicture = Point.Empty;
+                pictureBoxPositionRelatedToBuffer = Point.Empty;
                 smallImageWidth = 0;
                 smallImageHeight = 0;
                 bufferColumns = 0;
                 bufferRows = 0;
                 currentRow = 0;
                 currentColumn = 0;
-                maxWidth = 0;
-                maxHeight = 0;
+                MaxWidth = 0;
+                MaxHeight = 0;
+                MaxRowNumber = 0;
+                MaxColumnNumber = 0;
             }
             else
             {
                 MessageBox.Show("There are no images to remove");
             }
         }
+        #endregion
     }
 }

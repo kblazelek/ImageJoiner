@@ -36,6 +36,11 @@
             this.buttonJoinImages = new System.Windows.Forms.Button();
             this.buttonRemoveImages = new System.Windows.Forms.Button();
             this.progressBar = new System.Windows.Forms.ProgressBar();
+            this.labelColumns = new System.Windows.Forms.Label();
+            this.labelRows = new System.Windows.Forms.Label();
+            this.labelWidth = new System.Windows.Forms.Label();
+            this.labelHeight = new System.Windows.Forms.Label();
+            this.labelFinalImageInfo = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             this.SuspendLayout();
             // 
@@ -74,6 +79,7 @@
             this.pictureBoxFinallImage.Size = new System.Drawing.Size(525, 537);
             this.pictureBoxFinallImage.TabIndex = 1;
             this.pictureBoxFinallImage.TabStop = false;
+            this.pictureBoxFinallImage.SizeChanged += new System.EventHandler(this.pictureBoxFinallImage_SizeChanged);
             this.pictureBoxFinallImage.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureBoxFinallImage_Paint);
             this.pictureBoxFinallImage.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureBoxFinallImage_MouseDown);
             this.pictureBoxFinallImage.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pictureBoxFinallImage_MouseMove);
@@ -107,11 +113,61 @@
             this.progressBar.TabIndex = 4;
             this.progressBar.Visible = false;
             // 
+            // labelColumns
+            // 
+            this.labelColumns.AutoSize = true;
+            this.labelColumns.Location = new System.Drawing.Point(134, 492);
+            this.labelColumns.Name = "labelColumns";
+            this.labelColumns.Size = new System.Drawing.Size(59, 13);
+            this.labelColumns.TabIndex = 7;
+            this.labelColumns.Text = "Columns: 0";
+            // 
+            // labelRows
+            // 
+            this.labelRows.AutoSize = true;
+            this.labelRows.Location = new System.Drawing.Point(134, 479);
+            this.labelRows.Name = "labelRows";
+            this.labelRows.Size = new System.Drawing.Size(46, 13);
+            this.labelRows.TabIndex = 6;
+            this.labelRows.Text = "Rows: 0";
+            // 
+            // labelWidth
+            // 
+            this.labelWidth.AutoSize = true;
+            this.labelWidth.Location = new System.Drawing.Point(13, 479);
+            this.labelWidth.Name = "labelWidth";
+            this.labelWidth.Size = new System.Drawing.Size(47, 13);
+            this.labelWidth.TabIndex = 5;
+            this.labelWidth.Text = "Width: 0";
+            // 
+            // labelHeight
+            // 
+            this.labelHeight.AutoSize = true;
+            this.labelHeight.Location = new System.Drawing.Point(13, 492);
+            this.labelHeight.Name = "labelHeight";
+            this.labelHeight.Size = new System.Drawing.Size(50, 13);
+            this.labelHeight.TabIndex = 8;
+            this.labelHeight.Text = "Height: 0";
+            // 
+            // labelFinalImageInfo
+            // 
+            this.labelFinalImageInfo.AutoSize = true;
+            this.labelFinalImageInfo.Location = new System.Drawing.Point(13, 463);
+            this.labelFinalImageInfo.Name = "labelFinalImageInfo";
+            this.labelFinalImageInfo.Size = new System.Drawing.Size(83, 13);
+            this.labelFinalImageInfo.TabIndex = 9;
+            this.labelFinalImageInfo.Text = "Final image info:";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 561);
+            this.Controls.Add(this.labelFinalImageInfo);
+            this.Controls.Add(this.labelHeight);
+            this.Controls.Add(this.labelColumns);
+            this.Controls.Add(this.labelRows);
+            this.Controls.Add(this.labelWidth);
             this.Controls.Add(this.progressBar);
             this.Controls.Add(this.buttonRemoveImages);
             this.Controls.Add(this.buttonJoinImages);
@@ -122,6 +178,7 @@
             this.Text = "ImageJoiner";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).EndInit();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -134,6 +191,11 @@
         private System.Windows.Forms.Button buttonJoinImages;
         private System.Windows.Forms.Button buttonRemoveImages;
         private System.Windows.Forms.ProgressBar progressBar;
+        private System.Windows.Forms.Label labelWidth;
+        private System.Windows.Forms.Label labelRows;
+        private System.Windows.Forms.Label labelColumns;
+        private System.Windows.Forms.Label labelHeight;
+        private System.Windows.Forms.Label labelFinalImageInfo;
     }
 }
 
