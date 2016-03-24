@@ -10,6 +10,13 @@ using System.Text.RegularExpressions;
 
 namespace ImageJoiner
 {
+    public enum RowAndColumnNumeration
+    {
+        XrightYdown,
+        XrightYup,
+        XleftYdown,
+        XleftYup
+    }
     public partial class Form1 : Form
     {
         private bool validData;
@@ -27,7 +34,9 @@ namespace ImageJoiner
         private Point pictureBoxPositionRelatedToWholePicture = Point.Empty;
         private Point pictureBoxPositionRelatedToBuffer = Point.Empty;
         private Bitmap bufferImage;
+        private Bitmap previewImage;
         private bool panning = false;
+        RowAndColumnNumeration rowAndColumnNumeration;
 
         #region Accessors
 
@@ -57,7 +66,7 @@ namespace ImageJoiner
             set
             {
                 maxRowNumber = value;
-                if(listViewImages.Items.Count > 0)
+                if (listViewImages.Items.Count > 0)
                 {
                     labelRows.Text = "Rows: " + (MaxRowNumber + 1).ToString();
                 }
@@ -66,7 +75,7 @@ namespace ImageJoiner
                     labelRows.Text = "Rows: 0";
                 }
             }
-        }   
+        }
 
         public int MaxColumnNumber
         {
@@ -137,6 +146,7 @@ namespace ImageJoiner
         /// <summary>
         /// Zdarzenie, które ma miejsce, gdy użytkownik upuści jeden lub więcej obrazów na listę. Sprawdza, czy obrazy mają takie same wymiary.
         /// Gdy wszystkie obrazy są poprawne, to ścieżki do nich wraz z minuaturkami obrazów są dodawane do list.
+        /// Dodatkowo pyta się o rodzaj numeracji wierszy i kolumn
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -146,6 +156,17 @@ namespace ImageJoiner
             {
                 if (validData)
                 {
+                    FormAskForRowAndColumnNumeration formAskForRowAndColumnNumeration = new FormAskForRowAndColumnNumeration();
+                    var result = formAskForRowAndColumnNumeration.ShowDialog();
+                    if(result == DialogResult.OK)
+                    {
+                        this.rowAndColumnNumeration = formAskForRowAndColumnNumeration.rowAndColumnNumeration;
+                    }
+                    else
+                    {
+                        this.rowAndColumnNumeration = RowAndColumnNumeration.XrightYdown;
+                    }
+                    formAskForRowAndColumnNumeration.Close();
                     string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                     Array.Sort(files);
                     int filesCount = files.Count(s => s != null);
@@ -258,7 +279,7 @@ namespace ImageJoiner
             else
             {
                 MessageBox.Show("There are no images to join.");
-            } 
+            }
         }
 
 
@@ -292,6 +313,7 @@ namespace ImageJoiner
                 }
                 CalculatePictureBoxPositionRelatedToBuffer();
                 pictureBoxFinallImage.Invalidate(); // Ponownie rysuje obraz
+                pictureBoxPreview.Invalidate();
             }
         }
         /// <summary>
@@ -318,6 +340,25 @@ namespace ImageJoiner
             }
         }
         /// <summary>
+        /// Rysuje podgląd.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void pictureBoxPreview_Paint(object sender, PaintEventArgs e)
+        {
+            if (previewImage != null)
+            {
+                e.Graphics.Clear(Color.White);
+                Pen blackPen = new Pen(Color.Red, 1);
+                int rectangleWidth = pictureBoxFinallImage.Width * pictureBoxPreview.Width / maxWidth;
+                int rectangleHeight = pictureBoxFinallImage.Height * pictureBoxPreview.Height / maxHeight;
+                int rectangleX = pictureBoxPositionRelatedToWholePicture.X * pictureBoxPreview.Width / maxWidth;
+                int rectangleY = pictureBoxPositionRelatedToWholePicture.Y * pictureBoxPreview.Height / maxHeight;
+                Rectangle rect = new Rectangle(rectangleX, rectangleY, rectangleWidth, rectangleHeight);
+                e.Graphics.DrawRectangle(blackPen, rect);
+            }
+        }
+        /// <summary>
         /// Wywołuje metodę, która czyści listę obrazów, bufor i zmienne pomocnicze.
         /// </summary>
         /// <param name="sender"></param>
@@ -339,7 +380,7 @@ namespace ImageJoiner
         #endregion
         #region Helper methods
         /// <summary>
-        /// Funkcja ładująca obrazki do bufora i wyświetlająca lewy górny róg obrazu.
+        /// Funkcja ładująca obrazki do bufora i wyświetlająca lewy górny róg obrazu. Rysuje również podgląd.
         /// </summary>
         private void JoinImages()
         {
@@ -352,9 +393,20 @@ namespace ImageJoiner
                 pictureBoxPositionRelatedToBuffer = Point.Empty;
                 CalculateBufferRowsAndColumns();
                 LoadImagesIntoBuffer();
+                InitializePreviewImage();
                 pictureBoxFinallImage.Invalidate();
+                pictureBoxPreview.Invalidate();
             }
         }
+
+        /// <summary>
+        /// Funkcja inicjalizująca obrazek podglądowy.
+        /// </summary>
+        private void InitializePreviewImage()
+        {
+            previewImage = new Bitmap(pictureBoxPreview.Width, pictureBoxPreview.Height);
+        }
+
         /// <summary>
         /// Funkcja ładująca do bufora obrazki
         /// </summary>
@@ -368,7 +420,7 @@ namespace ImageJoiner
             int yPosition = 0;
             int columnShift = 0;
             int rowShift = 0;
-            if(currentColumn >= 2)
+            if (currentColumn >= 2)
             {
                 if (MaxColumnNumber - currentColumn <= 2)
                 {
@@ -379,7 +431,7 @@ namespace ImageJoiner
                     columnShift = currentColumn - 1;
                 }
             }
-            if(currentRow >=2)
+            if (currentRow >= 2)
             {
                 if (MaxRowNumber - currentRow <= 2)
                 {
@@ -398,6 +450,14 @@ namespace ImageJoiner
                     fileNameWithoutExtension = Path.GetFileNameWithoutExtension(image);
                     row = GetRowFromFileName(fileNameWithoutExtension);
                     column = GetColumnFromFileName(fileNameWithoutExtension);
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        column = maxColumnNumber - column;
+                    }
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XrightYup || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        row = maxRowNumber - row;
+                    }
 
                     // Obliczanie pozycji małego obrazka w buforze i dodanie go do tymczasowej listy
                     Bitmap bitmap = new Bitmap(image);
@@ -475,19 +535,19 @@ namespace ImageJoiner
         {
             int relativeX = pictureBoxPositionRelatedToWholePicture.X % smallImageWidth;
             int relativeY = pictureBoxPositionRelatedToWholePicture.Y % smallImageHeight;
-            if(currentColumn == MaxColumnNumber)
+            if (currentColumn == MaxColumnNumber)
             {
                 relativeX += (bufferColumns - 1) * smallImageWidth;
             }
-            else if(currentColumn > 0)
+            else if (currentColumn > 0)
             {
                 relativeX += smallImageWidth;
             }
-            if(currentRow == MaxRowNumber)
+            if (currentRow == MaxRowNumber)
             {
                 relativeY += (bufferRows - 1) * smallImageHeight;
             }
-            else if(currentRow > 0)
+            else if (currentRow > 0)
             {
                 relativeY += smallImageHeight;
             }
@@ -547,11 +607,11 @@ namespace ImageJoiner
             int startingColumn, startingRow;
 
             // Wyznaczania poczatkowej kolumny dla bufora
-            if((currentColumn - 1) < 0)
+            if ((currentColumn - 1) < 0)
             {
                 startingColumn = 0;
             }
-            else if((currentColumn + bufferColumns - 1) > MaxColumnNumber)
+            else if ((currentColumn + bufferColumns - 1) > MaxColumnNumber)
             {
                 startingColumn = MaxColumnNumber - bufferColumns + 1;
             }
@@ -580,9 +640,9 @@ namespace ImageJoiner
             {
                 for (int j = startingColumn; j <= endingColumn; ++j)
                 {
-                    fileNameToFind = "Y" + i.ToString().PadLeft(4, '0') + "X" + j.ToString().PadLeft(4, '0');
-                    listViewItem =  listViewImages.Items.Cast<ListViewItem>().FirstOrDefault(item => Path.GetFileNameWithoutExtension(item.Text) == fileNameToFind);
-                    if(listViewItem != null)
+                    fileNameToFind = GetFileNameBasedOnRowAndColumn(i, j);
+                    listViewItem = listViewImages.Items.Cast<ListViewItem>().FirstOrDefault(item => Path.GetFileNameWithoutExtension(item.Text) == fileNameToFind);
+                    if (listViewItem != null)
                     {
                         fileNames.Add(listViewItem.Text);
                     }
@@ -593,13 +653,36 @@ namespace ImageJoiner
         }
 
         /// <summary>
+        /// Zwraca nazwę pliku na podstawie wiersza i kolumny. Dokonuje konwersji w zależności od dobranej metody numeracji wierszy i kolumn.
+        /// </summary>
+        /// <param name="row"></param>
+        /// <param name="column"></param>
+        /// <returns></returns>
+        private string GetFileNameBasedOnRowAndColumn(int row, int column)
+        {
+            switch(rowAndColumnNumeration)
+            {
+                case RowAndColumnNumeration.XleftYdown:
+                    return "Y" + row.ToString().PadLeft(4, '0') + "X" + (maxColumnNumber - column).ToString().PadLeft(4, '0');
+                case RowAndColumnNumeration.XleftYup:
+                    return "Y" + (maxRowNumber - row).ToString().PadLeft(4, '0') + "X" + ( maxColumnNumber - column).ToString().PadLeft(4, '0');
+                case RowAndColumnNumeration.XrightYdown:
+                    return "Y" + row.ToString().PadLeft(4, '0') + "X" + column.ToString().PadLeft(4, '0');
+                case RowAndColumnNumeration.XrightYup:
+                    return "Y" + (maxRowNumber - row).ToString().PadLeft(4, '0') + "X" + column.ToString().PadLeft(4, '0');
+                default:
+                    return "Y" + row.ToString().PadLeft(4, '0') + "X" + column.ToString().PadLeft(4, '0');
+            }
+        }
+
+        /// <summary>
         /// Oblicza wiersz i kolumnę na podstawie położenia lewego górnego rogu pictureBoxa w odniesieniu do całego obrazu.
         /// </summary>
         private void CalculateRowAndColumnBasedOnCurrentPosition()
         {
-            if(pictureBoxPositionRelatedToWholePicture.X <= smallImageWidth)
+            if (pictureBoxPositionRelatedToWholePicture.X < smallImageWidth)
             {
-                if(pictureBoxPositionRelatedToWholePicture.Y <= smallImageHeight)
+                if (pictureBoxPositionRelatedToWholePicture.Y < smallImageHeight)
                 {
                     currentRow = 0;
                     currentColumn = 0;
@@ -612,14 +695,14 @@ namespace ImageJoiner
             }
             else
             {
-                if(pictureBoxPositionRelatedToWholePicture.Y <= smallImageHeight)
+                if (pictureBoxPositionRelatedToWholePicture.Y < smallImageHeight)
                 {
                     currentRow = 0;
                     currentColumn = (int)(pictureBoxPositionRelatedToWholePicture.X / smallImageWidth);
                 }
                 else
                 {
-                    currentRow =  (int)(pictureBoxPositionRelatedToWholePicture.Y / smallImageHeight);
+                    currentRow = (int)(pictureBoxPositionRelatedToWholePicture.Y / smallImageHeight);
                     currentColumn = (int)(pictureBoxPositionRelatedToWholePicture.X / smallImageWidth);
                 }
             }
@@ -630,9 +713,9 @@ namespace ImageJoiner
         /// </summary>
         public void CalculateBufferRowsAndColumns()
         {
-            if(smallImageWidth >= pictureBoxFinallImage.Width)
+            if (smallImageWidth >= pictureBoxFinallImage.Width)
             {
-                if(smallImageHeight >= pictureBoxFinallImage.Height)
+                if (smallImageHeight >= pictureBoxFinallImage.Height)
                 {
                     bufferColumns = 3;
                     bufferRows = 3;
@@ -678,6 +761,18 @@ namespace ImageJoiner
                     pictureBoxFinallImage.Image.Dispose();
                     pictureBoxFinallImage.Image = null;
                     pictureBoxFinallImage.Invalidate(); // Odświeża obraz
+                }
+                if (previewImage != null)
+                {
+                    previewImage.Dispose();
+                    previewImage = null;
+                    pictureBoxPreview.Invalidate(); // Odświeża obraz
+                }
+                if (pictureBoxPreview.Image != null)
+                {
+                    pictureBoxPreview.Image.Dispose();
+                    pictureBoxPreview.Image = null;
+                    pictureBoxPreview.Invalidate(); // Odświeża obraz
                 }
                 panningStartingPoint = Point.Empty;
                 pictureBoxPositionRelatedToWholePicture = Point.Empty;

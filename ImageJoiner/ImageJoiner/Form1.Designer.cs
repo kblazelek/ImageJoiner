@@ -41,7 +41,9 @@
             this.labelWidth = new System.Windows.Forms.Label();
             this.labelHeight = new System.Windows.Forms.Label();
             this.labelFinalImageInfo = new System.Windows.Forms.Label();
+            this.pictureBoxPreview = new System.Windows.Forms.PictureBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).BeginInit();
             this.SuspendLayout();
             // 
             // listViewImages
@@ -76,7 +78,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureBoxFinallImage.Location = new System.Drawing.Point(247, 12);
             this.pictureBoxFinallImage.Name = "pictureBoxFinallImage";
-            this.pictureBoxFinallImage.Size = new System.Drawing.Size(525, 537);
+            this.pictureBoxFinallImage.Size = new System.Drawing.Size(625, 573);
             this.pictureBoxFinallImage.TabIndex = 1;
             this.pictureBoxFinallImage.TabStop = false;
             this.pictureBoxFinallImage.SizeChanged += new System.EventHandler(this.pictureBoxFinallImage_SizeChanged);
@@ -116,7 +118,7 @@
             // labelColumns
             // 
             this.labelColumns.AutoSize = true;
-            this.labelColumns.Location = new System.Drawing.Point(134, 492);
+            this.labelColumns.Location = new System.Drawing.Point(134, 477);
             this.labelColumns.Name = "labelColumns";
             this.labelColumns.Size = new System.Drawing.Size(59, 13);
             this.labelColumns.TabIndex = 7;
@@ -125,7 +127,7 @@
             // labelRows
             // 
             this.labelRows.AutoSize = true;
-            this.labelRows.Location = new System.Drawing.Point(134, 479);
+            this.labelRows.Location = new System.Drawing.Point(134, 464);
             this.labelRows.Name = "labelRows";
             this.labelRows.Size = new System.Drawing.Size(46, 13);
             this.labelRows.TabIndex = 6;
@@ -134,7 +136,7 @@
             // labelWidth
             // 
             this.labelWidth.AutoSize = true;
-            this.labelWidth.Location = new System.Drawing.Point(13, 479);
+            this.labelWidth.Location = new System.Drawing.Point(13, 464);
             this.labelWidth.Name = "labelWidth";
             this.labelWidth.Size = new System.Drawing.Size(47, 13);
             this.labelWidth.TabIndex = 5;
@@ -143,7 +145,7 @@
             // labelHeight
             // 
             this.labelHeight.AutoSize = true;
-            this.labelHeight.Location = new System.Drawing.Point(13, 492);
+            this.labelHeight.Location = new System.Drawing.Point(13, 477);
             this.labelHeight.Name = "labelHeight";
             this.labelHeight.Size = new System.Drawing.Size(50, 13);
             this.labelHeight.TabIndex = 8;
@@ -152,17 +154,27 @@
             // labelFinalImageInfo
             // 
             this.labelFinalImageInfo.AutoSize = true;
-            this.labelFinalImageInfo.Location = new System.Drawing.Point(13, 463);
+            this.labelFinalImageInfo.Location = new System.Drawing.Point(13, 448);
             this.labelFinalImageInfo.Name = "labelFinalImageInfo";
             this.labelFinalImageInfo.Size = new System.Drawing.Size(83, 13);
             this.labelFinalImageInfo.TabIndex = 9;
             this.labelFinalImageInfo.Text = "Final image info:";
             // 
+            // pictureBoxPreview
+            // 
+            this.pictureBoxPreview.Location = new System.Drawing.Point(13, 494);
+            this.pictureBoxPreview.Name = "pictureBoxPreview";
+            this.pictureBoxPreview.Size = new System.Drawing.Size(228, 91);
+            this.pictureBoxPreview.TabIndex = 10;
+            this.pictureBoxPreview.TabStop = false;
+            this.pictureBoxPreview.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureBoxPreview_Paint);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(784, 561);
+            this.ClientSize = new System.Drawing.Size(884, 597);
+            this.Controls.Add(this.pictureBoxPreview);
             this.Controls.Add(this.labelFinalImageInfo);
             this.Controls.Add(this.labelHeight);
             this.Controls.Add(this.labelColumns);
@@ -177,6 +189,7 @@
             this.Name = "Form1";
             this.Text = "ImageJoiner";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -196,6 +209,7 @@
         private System.Windows.Forms.Label labelColumns;
         private System.Windows.Forms.Label labelHeight;
         private System.Windows.Forms.Label labelFinalImageInfo;
+        private System.Windows.Forms.PictureBox pictureBoxPreview;
     }
 }
 
