@@ -36,7 +36,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(12, 9);
+            this.label1.Location = new System.Drawing.Point(2, 9);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(208, 13);
             this.label1.TabIndex = 0;
@@ -45,14 +45,14 @@
             // comboBox1
             // 
             this.comboBox1.FormattingEnabled = true;
-            this.comboBox1.Location = new System.Drawing.Point(15, 38);
+            this.comboBox1.Location = new System.Drawing.Point(5, 35);
             this.comboBox1.Name = "comboBox1";
             this.comboBox1.Size = new System.Drawing.Size(205, 21);
             this.comboBox1.TabIndex = 1;
             // 
             // buttonOK
             // 
-            this.buttonOK.Location = new System.Drawing.Point(15, 75);
+            this.buttonOK.Location = new System.Drawing.Point(5, 62);
             this.buttonOK.Name = "buttonOK";
             this.buttonOK.Size = new System.Drawing.Size(205, 23);
             this.buttonOK.TabIndex = 2;
@@ -64,12 +64,14 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(235, 109);
+            this.ClientSize = new System.Drawing.Size(212, 91);
             this.Controls.Add(this.buttonOK);
             this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.label1);
+            this.MaximumSize = new System.Drawing.Size(228, 130);
+            this.MinimumSize = new System.Drawing.Size(228, 130);
             this.Name = "FormAskForRowAndColumnNumeration";
-            this.Text = "FormAskForRowAndColumnNumeration";
+            this.Text = "Choose numeration";
             this.ResumeLayout(false);
             this.PerformLayout();
 

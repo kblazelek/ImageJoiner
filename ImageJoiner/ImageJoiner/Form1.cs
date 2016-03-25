@@ -37,6 +37,7 @@ namespace ImageJoiner
         private Bitmap previewImage;
         private bool panning = false;
         RowAndColumnNumeration rowAndColumnNumeration;
+        FormAskForRowAndColumnNumeration formAskForRowAndColumnNumeration;
 
         #region Accessors
 
@@ -156,17 +157,22 @@ namespace ImageJoiner
             {
                 if (validData)
                 {
-                    FormAskForRowAndColumnNumeration formAskForRowAndColumnNumeration = new FormAskForRowAndColumnNumeration();
-                    var result = formAskForRowAndColumnNumeration.ShowDialog();
-                    if(result == DialogResult.OK)
+                    if(listViewImages.Items.Count == 0)
                     {
-                        this.rowAndColumnNumeration = formAskForRowAndColumnNumeration.rowAndColumnNumeration;
+                        formAskForRowAndColumnNumeration = new FormAskForRowAndColumnNumeration();
+                        formAskForRowAndColumnNumeration.StartPosition = FormStartPosition.Manual;
+                        formAskForRowAndColumnNumeration.Location = this.PointToScreen(Point.Empty);
+                        var result = formAskForRowAndColumnNumeration.ShowDialog();
+                        if (result == DialogResult.OK)
+                        {
+                            this.rowAndColumnNumeration = formAskForRowAndColumnNumeration.rowAndColumnNumeration;
+                        }
+                        else
+                        {
+                            this.rowAndColumnNumeration = RowAndColumnNumeration.XrightYdown;
+                        }
+                        formAskForRowAndColumnNumeration.Close();
                     }
-                    else
-                    {
-                        this.rowAndColumnNumeration = RowAndColumnNumeration.XrightYdown;
-                    }
-                    formAskForRowAndColumnNumeration.Close();
                     string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                     Array.Sort(files);
                     int filesCount = files.Count(s => s != null);
@@ -228,8 +234,8 @@ namespace ImageJoiner
                             items[i] = item;
                             progressBar.PerformStep();
                         }
-                        MaxWidth = (tempMaxRowNumber + 1) * smallImageWidth;
-                        MaxHeight = (tempMaxColumnNumber + 1) * smallImageHeight;
+                        MaxWidth = (tempMaxColumnNumber + 1) * smallImageWidth;
+                        MaxHeight = (tempMaxRowNumber + 1) * smallImageHeight;
                         listViewImages.Items.AddRange(items);
                         imagesList.Images.AddRange(images);
                         MaxColumnNumber = tempMaxColumnNumber;
@@ -274,6 +280,7 @@ namespace ImageJoiner
         {
             if (listViewImages.Items.Count > 0)
             {
+                InitializePreviewImage();
                 JoinImages();
             }
             else
@@ -350,8 +357,10 @@ namespace ImageJoiner
             {
                 e.Graphics.Clear(Color.White);
                 Pen blackPen = new Pen(Color.Red, 1);
-                int rectangleWidth = pictureBoxFinallImage.Width * pictureBoxPreview.Width / maxWidth;
-                int rectangleHeight = pictureBoxFinallImage.Height * pictureBoxPreview.Height / maxHeight;
+                int rectangleWidth = maxWidth > pictureBoxFinallImage.Width ? 
+                    pictureBoxFinallImage.Width * pictureBoxPreview.Width / maxWidth : pictureBoxPreview.Width - 1;
+                int rectangleHeight = maxHeight > pictureBoxFinallImage.Height ?
+                    pictureBoxFinallImage.Height * pictureBoxPreview.Height / maxHeight : pictureBoxPreview.Height - 1;
                 int rectangleX = pictureBoxPositionRelatedToWholePicture.X * pictureBoxPreview.Width / maxWidth;
                 int rectangleY = pictureBoxPositionRelatedToWholePicture.Y * pictureBoxPreview.Height / maxHeight;
                 Rectangle rect = new Rectangle(rectangleX, rectangleY, rectangleWidth, rectangleHeight);
@@ -393,7 +402,6 @@ namespace ImageJoiner
                 pictureBoxPositionRelatedToBuffer = Point.Empty;
                 CalculateBufferRowsAndColumns();
                 LoadImagesIntoBuffer();
-                InitializePreviewImage();
                 pictureBoxFinallImage.Invalidate();
                 pictureBoxPreview.Invalidate();
             }
@@ -509,7 +517,7 @@ namespace ImageJoiner
             //Sprawdzanie, czy nowy X nie wykracza poza zakres
             if (newX > MaxWidth - pictureBoxFinallImage.Width)
             {
-                newX = MaxWidth - pictureBoxFinallImage.Width;
+                newX = MaxWidth > pictureBoxFinallImage.Width ? MaxWidth - pictureBoxFinallImage.Width : 0;
             }
             else if (newX < 0)
             {
@@ -519,7 +527,7 @@ namespace ImageJoiner
             // Sprawdzanie, czy nowy Y nie wykracza poza zakres
             if (newY > MaxHeight - pictureBoxFinallImage.Height)
             {
-                newY = MaxHeight - pictureBoxFinallImage.Height;
+                newY = MaxHeight > pictureBoxFinallImage.Height ? MaxHeight - pictureBoxFinallImage.Height : 0;
             }
             else if (newY < 0)
             {
@@ -739,6 +747,8 @@ namespace ImageJoiner
                     bufferRows = (int)(pictureBoxFinallImage.Height / smallImageHeight) + 3;
                 }
             }
+            if (bufferColumns > (MaxColumnNumber + 1)) bufferColumns = MaxColumnNumber + 1;
+            if (bufferRows > (MaxRowNumber + 1)) bufferRows = MaxRowNumber + 1;
         }
 
         /// <summary>
@@ -774,6 +784,10 @@ namespace ImageJoiner
                     pictureBoxPreview.Image = null;
                     pictureBoxPreview.Invalidate(); // Odświeża obraz
                 }
+                if(formAskForRowAndColumnNumeration != null)
+                {
+                    formAskForRowAndColumnNumeration.Close();
+                }
                 panningStartingPoint = Point.Empty;
                 pictureBoxPositionRelatedToWholePicture = Point.Empty;
                 pictureBoxPositionRelatedToBuffer = Point.Empty;
@@ -794,5 +808,23 @@ namespace ImageJoiner
             }
         }
         #endregion
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            using (Form form = new Form())
+            {
+                Bitmap img = bufferImage;
+
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.Size = img.Size;
+
+                PictureBox pb = new PictureBox();
+                pb.Dock = DockStyle.Fill;
+                pb.Image = img;
+
+                form.Controls.Add(pb);
+                form.ShowDialog();
+            }
+        }
     }
 }
