@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows.Forms;
 using ImageJoiner.CustomExceptions;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace ImageJoiner
 {
@@ -38,7 +39,17 @@ namespace ImageJoiner
         private bool panning = false;
         RowAndColumnNumeration rowAndColumnNumeration;
         FormAskForRowAndColumnNumeration formAskForRowAndColumnNumeration;
-
+        Object progressBarLock = new Object();
+        Object finallImageVariablesLock = new Object();
+        Object imagesLock = new Object();
+        Object itemsLock = new Object();
+        List<Image> tempImages;
+        List<ListViewItem> tempItems;
+        Boolean droppedImagesSuccessfulllyLoaded = true;
+        int tempMaxColumnNumber = 0;
+        int tempMaxRowNumber = 0;
+        int tempMaxHeight = 0;
+        int tempMaxWidth = 0;
         #region Accessors
 
         public int MaxWidth
@@ -157,7 +168,7 @@ namespace ImageJoiner
             {
                 if (validData)
                 {
-                    if(listViewImages.Items.Count == 0)
+                    if (listViewImages.Items.Count == 0)
                     {
                         formAskForRowAndColumnNumeration = new FormAskForRowAndColumnNumeration();
                         formAskForRowAndColumnNumeration.StartPosition = FormStartPosition.Manual;
@@ -173,11 +184,9 @@ namespace ImageJoiner
                         }
                         formAskForRowAndColumnNumeration.Close();
                     }
-                    string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                    Array.Sort(files);
+                    string[] filesArray = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    List<string> files = filesArray.ToList<string>();
                     int filesCount = files.Count(s => s != null);
-                    ListViewItem[] items = new ListViewItem[filesCount];
-                    Image[] images = new Image[filesCount];
                     try
                     {
                         int currentListIndex = listViewImages.Items.Count;
@@ -202,70 +211,90 @@ namespace ImageJoiner
                         progressBar.Maximum = filesCount;
                         progressBar.Value = 1;
                         progressBar.Step = 1;
-                        int tempRowNumber = 0;
-                        int tempColumnNumber = 0;
-                        int tempMaxColumnNumber = 0;
-                        int tempMaxRowNumber = 0;
-                        for (int i = 0; i < filesCount; ++i)
+                        int neededProcessors = 0;
+                        int numberOfImagesPerCore = 0;
+                        int remainedImages = 0;
+                        tempMaxColumnNumber = MaxColumnNumber;
+                        tempMaxRowNumber = MaxRowNumber;
+                        tempMaxWidth = MaxWidth;
+                        tempMaxHeight = MaxHeight;
+                        tempImages = new List<Image>();
+                        tempItems = new List<ListViewItem>();
+                        // Obsłużyć wyjątki
+                        // Gdy liczba obrazow do zaladowania jest mala wykonaj wszystko na 1 rdzeniu, w przeciwnym wypadku użyj wszystkich rdzeni
+                        if (filesCount <= Environment.ProcessorCount)
                         {
-                            if (!ValidateFileName(Path.GetFileNameWithoutExtension(files[i])))
-                            {
-                                throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n YnnnnXnnnn.extension (for example Y0000X0000.png)", Path.GetFileName(files[i])));
-                            }
-                            images[i] = Image.FromFile(files[i]);
-                            if ((images[i].Height != smallImageHeight) || (images[i].Width != smallImageWidth))
-                            {
-                                throw new ImagesDifferentSizeExcpetion("Images are not the same size");
-                            }
-                            tempRowNumber = this.GetRowFromFileName(Path.GetFileNameWithoutExtension(files[i]));
-                            tempColumnNumber = this.GetColumnFromFileName(Path.GetFileNameWithoutExtension(files[i]));
-                            if (tempMaxRowNumber < tempRowNumber)
-                            {
-                                tempMaxRowNumber = tempRowNumber;
-                            }
-                            if (tempMaxColumnNumber < tempColumnNumber)
-                            {
-                                tempMaxColumnNumber = tempColumnNumber;
-                            }
-                            ListViewItem item = new ListViewItem();
-                            item.Text = files[i];
-                            item.ImageIndex = currentListIndex;
-                            ++currentListIndex;
-                            items[i] = item;
-                            progressBar.PerformStep();
+                            neededProcessors = 1;
+                            numberOfImagesPerCore = filesCount;
+                            remainedImages = 0;
                         }
-                        MaxWidth = (tempMaxColumnNumber + 1) * smallImageWidth;
-                        MaxHeight = (tempMaxRowNumber + 1) * smallImageHeight;
-                        listViewImages.Items.AddRange(items);
-                        imagesList.Images.AddRange(images);
-                        MaxColumnNumber = tempMaxColumnNumber;
-                        MaxRowNumber = tempMaxRowNumber;
-                        progressBar.Visible = false;
+                        else
+                        {
+                            neededProcessors = Environment.ProcessorCount;
+                            numberOfImagesPerCore = filesCount / Environment.ProcessorCount;
+                            remainedImages = filesCount % Environment.ProcessorCount != 0 ? filesCount % Environment.ProcessorCount : 0;
+                        }
+                        List<Thread> threads = new List<Thread>();
+                        int startingIndexOnList = 0;
+                        KeyValuePair<List<string>, int> pair;
+                        droppedImagesSuccessfulllyLoaded = true;
+                        for (int i = 0; i < neededProcessors; ++i)
+                        {
+                            startingIndexOnList = i * numberOfImagesPerCore + currentListIndex;
+                            if (i < neededProcessors - 1)
+                            {
+                                pair = new KeyValuePair<List<string>, int>(files.GetRange(i * numberOfImagesPerCore, numberOfImagesPerCore), startingIndexOnList);
+                                threads.Add(new Thread(new ParameterizedThreadStart(LoadDroppedImages)));
+                                threads.Last().Start(pair);
+                            }
+                            else
+                            {
+                                pair = new KeyValuePair<List<string>, int>(files.GetRange(i * numberOfImagesPerCore, numberOfImagesPerCore + remainedImages), startingIndexOnList);
+                                threads.Add(new Thread(new ParameterizedThreadStart(LoadDroppedImages)));
+                                threads.Last().Start(pair);
+                            }
+                        }
+                        var waitBg = new Thread(() =>
+                        {
+                            foreach (var thread in threads)
+                                thread.Join();
+                            progressBar.Invoke(new Action(() =>
+                            {
+                                if (droppedImagesSuccessfulllyLoaded)
+                                {
+                                    imagesList.Images.AddRange(tempImages.ToArray());
+                                    listViewImages.Items.AddRange(tempItems.ToArray());
+                                    MaxRowNumber = tempMaxRowNumber;
+                                    MaxColumnNumber = tempMaxColumnNumber;
+                                    MaxHeight = tempMaxHeight;
+                                    MaxWidth = tempMaxWidth;
+                                }
+                                tempItems.Clear();
+                                tempItems = null;
+                                tempImages.Clear();
+                                tempImages = null;
+                                tempMaxRowNumber = 0;
+                                tempMaxColumnNumber = 0;
+                                tempMaxWidth = 0;
+                                tempMaxHeight = 0;
+                                progressBar.Visible = false;
+                            }));
+                        }
+                        );
+                        waitBg.Start();
                     }
-                    catch (WrongFileNameException wrongFileNameException)
+                    catch (Exception ex)
                     {
-                        if (files != null) files = null;
-                        if (items != null) items = null;
-                        if (images != null) images = null;
-                        MessageBox.Show(wrongFileNameException.Message);
-                    }
-                    catch (ImagesDifferentSizeExcpetion imagesDifferentSizeExcpetion)
-                    {
-                        if (files != null) files = null;
-                        if (items != null) items = null;
-                        if (images != null) images = null;
-                        MessageBox.Show(imagesDifferentSizeExcpetion.Message);
-                    }
-                    catch (Exception exception)
-                    {
-                        if (files != null) files = null;
-                        if (items != null) items = null;
-                        if (images != null) images = null;
-                        MessageBox.Show(exception.Message);
+                        MessageBox.Show("lol");
                     }
                     finally
                     {
-                        progressBar.Visible = false;
+                        if (formAskForRowAndColumnNumeration != null)
+                        {
+                            formAskForRowAndColumnNumeration.Dispose();
+                            formAskForRowAndColumnNumeration = null;
+                        }
+                        if (files != null) files = null;
                     }
                 }
             }
@@ -357,7 +386,7 @@ namespace ImageJoiner
             {
                 e.Graphics.Clear(Color.White);
                 Pen blackPen = new Pen(Color.Red, 1);
-                int rectangleWidth = maxWidth > pictureBoxFinallImage.Width ? 
+                int rectangleWidth = maxWidth > pictureBoxFinallImage.Width ?
                     pictureBoxFinallImage.Width * pictureBoxPreview.Width / maxWidth : pictureBoxPreview.Width - 1;
                 int rectangleHeight = maxHeight > pictureBoxFinallImage.Height ?
                     pictureBoxFinallImage.Height * pictureBoxPreview.Height / maxHeight : pictureBoxPreview.Height - 1;
@@ -388,6 +417,126 @@ namespace ImageJoiner
         }
         #endregion
         #region Helper methods
+        /// <summary>
+        /// Ładuje zakres upuszczonych obrazkow do list.
+        /// </summary>
+        /// <param name="imagesToLoad"></param>
+        /// <param name="startingIndexOnList"></param>
+        private void LoadDroppedImages(object obj)
+        {
+            KeyValuePair<List<string>, int> pair = (KeyValuePair<List<string>, int>)obj;
+            List<string> imagesToLoad = pair.Key;
+            int startingIndexOnList = pair.Value;
+            List<ListViewItem> items = new List<ListViewItem>();
+            List<Image> images = new List<Image>();
+            int i = startingIndexOnList;
+            int tempRowNumber = 0;
+            int tempColumnNumber = 0;
+            int localTempMaxColumnNumber = 0;
+            int localTempMaxRowNumber = 0;
+            try
+            {
+                foreach (string image in imagesToLoad)
+                {
+                    if (!ValidateFileName(Path.GetFileNameWithoutExtension(image)))
+                    {
+                        throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n YnnnnXnnnn.extension (for example Y0000X0000.png)", Path.GetFileName(image)));
+                    }
+                    images.Add(Image.FromFile(image));
+                    if ((images.Last().Height != smallImageHeight) || (images.Last().Width != smallImageWidth))
+                    {
+                        throw new ImagesDifferentSizeExcpetion("Images are not the same size");
+                    }
+                    tempRowNumber = this.GetRowFromFileName(Path.GetFileNameWithoutExtension(image));
+                    tempColumnNumber = this.GetColumnFromFileName(Path.GetFileNameWithoutExtension(image));
+                    if (localTempMaxRowNumber < tempRowNumber)
+                    {
+                        localTempMaxRowNumber = tempRowNumber;
+                    }
+                    if (localTempMaxColumnNumber < tempColumnNumber)
+                    {
+                        localTempMaxColumnNumber = tempColumnNumber;
+                    }
+                    ListViewItem item = new ListViewItem();
+                    item.Text = image;
+                    item.ImageIndex = i;
+                    items.Add(item);
+                    ++i;
+                    lock (progressBarLock)
+                    {
+                        progressBar.Invoke(new Action(() => progressBar.PerformStep()));
+                    }
+                }
+                lock (finallImageVariablesLock)
+                {
+                    this.Invoke(new MethodInvoker(() =>
+                    {
+                        if (localTempMaxColumnNumber >= tempMaxColumnNumber)
+                        {
+                            tempMaxColumnNumber = localTempMaxColumnNumber;
+                            tempMaxWidth = (localTempMaxColumnNumber + 1) * smallImageWidth;
+                        }
+                    }));
+                    this.Invoke(new MethodInvoker(() =>
+                    {
+                        if (localTempMaxRowNumber >= tempMaxRowNumber)
+                        {
+                            tempMaxRowNumber = localTempMaxRowNumber;
+                            tempMaxHeight = (localTempMaxRowNumber + 1) * smallImageHeight;
+                        }
+                    }));
+                }
+                lock (imagesLock)
+                {
+                    listViewImages.Invoke(new MethodInvoker(() =>
+                    {
+                        tempImages.AddRange(images);
+                    }));
+
+                }
+                lock (itemsLock)
+                {
+                    listViewImages.Invoke(new MethodInvoker(() =>
+                    {
+                        tempItems.AddRange(items);
+                    }));
+
+                }
+            }
+            catch (WrongFileNameException wrongFileNameException)
+            {
+                if (imagesToLoad != null) imagesToLoad = null;
+                if (items != null) items = null;
+                if (images != null) images = null;
+                MessageBox.Show(wrongFileNameException.Message);
+                this.Invoke(new MethodInvoker(() =>
+                {
+                    droppedImagesSuccessfulllyLoaded = false;
+                }));
+            }
+            catch (ImagesDifferentSizeExcpetion imagesDifferentSizeExcpetion)
+            {
+                if (imagesToLoad != null) imagesToLoad = null;
+                if (items != null) items = null;
+                if (images != null) images = null;
+                MessageBox.Show(imagesDifferentSizeExcpetion.Message);
+                this.Invoke(new MethodInvoker(() =>
+                {
+                    droppedImagesSuccessfulllyLoaded = false;
+                }));
+            }
+            catch (Exception exception)
+            {
+                if (imagesToLoad != null) imagesToLoad = null;
+                if (items != null) items = null;
+                if (images != null) images = null;
+                MessageBox.Show(exception.Message);
+                this.Invoke(new MethodInvoker(() =>
+                {
+                    droppedImagesSuccessfulllyLoaded = false;
+                }));
+            }
+        }
         /// <summary>
         /// Funkcja ładująca obrazki do bufora i wyświetlająca lewy górny róg obrazu. Rysuje również podgląd.
         /// </summary>
@@ -668,12 +817,12 @@ namespace ImageJoiner
         /// <returns></returns>
         private string GetFileNameBasedOnRowAndColumn(int row, int column)
         {
-            switch(rowAndColumnNumeration)
+            switch (rowAndColumnNumeration)
             {
                 case RowAndColumnNumeration.XleftYdown:
                     return "Y" + row.ToString().PadLeft(4, '0') + "X" + (maxColumnNumber - column).ToString().PadLeft(4, '0');
                 case RowAndColumnNumeration.XleftYup:
-                    return "Y" + (maxRowNumber - row).ToString().PadLeft(4, '0') + "X" + ( maxColumnNumber - column).ToString().PadLeft(4, '0');
+                    return "Y" + (maxRowNumber - row).ToString().PadLeft(4, '0') + "X" + (maxColumnNumber - column).ToString().PadLeft(4, '0');
                 case RowAndColumnNumeration.XrightYdown:
                     return "Y" + row.ToString().PadLeft(4, '0') + "X" + column.ToString().PadLeft(4, '0');
                 case RowAndColumnNumeration.XrightYup:
@@ -784,7 +933,7 @@ namespace ImageJoiner
                     pictureBoxPreview.Image = null;
                     pictureBoxPreview.Invalidate(); // Odświeża obraz
                 }
-                if(formAskForRowAndColumnNumeration != null)
+                if (formAskForRowAndColumnNumeration != null)
                 {
                     formAskForRowAndColumnNumeration.Close();
                 }
@@ -801,6 +950,20 @@ namespace ImageJoiner
                 MaxHeight = 0;
                 MaxRowNumber = 0;
                 MaxColumnNumber = 0;
+                tempMaxRowNumber = 0;
+                tempMaxColumnNumber = 0;
+                tempMaxWidth = 0;
+                tempMaxHeight = 0;
+                if (tempImages != null)
+                {
+                    tempImages.Clear();
+                    tempImages = null;
+                }
+                if (tempItems.Count > 0)
+                {
+                    tempItems.Clear();
+                    tempItems = null;
+                }
             }
             else
             {
@@ -808,23 +971,5 @@ namespace ImageJoiner
             }
         }
         #endregion
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            using (Form form = new Form())
-            {
-                Bitmap img = bufferImage;
-
-                form.StartPosition = FormStartPosition.CenterScreen;
-                form.Size = img.Size;
-
-                PictureBox pb = new PictureBox();
-                pb.Dock = DockStyle.Fill;
-                pb.Image = img;
-
-                form.Controls.Add(pb);
-                form.ShowDialog();
-            }
-        }
     }
 }

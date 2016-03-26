@@ -42,7 +42,6 @@
             this.labelHeight = new System.Windows.Forms.Label();
             this.labelFinalImageInfo = new System.Windows.Forms.Label();
             this.pictureBoxPreview = new System.Windows.Forms.PictureBox();
-            this.button1 = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).BeginInit();
             this.SuspendLayout();
@@ -170,22 +169,11 @@
             this.pictureBoxPreview.TabStop = false;
             this.pictureBoxPreview.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureBoxPreview_Paint);
             // 
-            // button1
-            // 
-            this.button1.Location = new System.Drawing.Point(137, 437);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(75, 23);
-            this.button1.TabIndex = 11;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(884, 597);
-            this.Controls.Add(this.button1);
             this.Controls.Add(this.pictureBoxPreview);
             this.Controls.Add(this.labelFinalImageInfo);
             this.Controls.Add(this.labelHeight);
@@ -222,7 +210,6 @@
         private System.Windows.Forms.Label labelHeight;
         private System.Windows.Forms.Label labelFinalImageInfo;
         private System.Windows.Forms.PictureBox pictureBoxPreview;
-        private System.Windows.Forms.Button button1;
     }
 }
 
