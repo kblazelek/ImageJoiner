@@ -42,6 +42,7 @@
             this.labelHeight = new System.Windows.Forms.Label();
             this.labelFinalImageInfo = new System.Windows.Forms.Label();
             this.pictureBoxPreview = new System.Windows.Forms.PictureBox();
+            this.backgroundWorkerLoadBackground = new System.ComponentModel.BackgroundWorker();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).BeginInit();
             this.SuspendLayout();
@@ -169,6 +170,11 @@
             this.pictureBoxPreview.TabStop = false;
             this.pictureBoxPreview.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureBoxPreview_Paint);
             // 
+            // backgroundWorkerLoadBackground
+            // 
+            this.backgroundWorkerLoadBackground.WorkerSupportsCancellation = true;
+            this.backgroundWorkerLoadBackground.DoWork += new System.ComponentModel.DoWorkEventHandler(this.backgroundWorkerLoadBackground_DoWork);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -210,6 +216,7 @@
         private System.Windows.Forms.Label labelHeight;
         private System.Windows.Forms.Label labelFinalImageInfo;
         private System.Windows.Forms.PictureBox pictureBoxPreview;
+        private System.ComponentModel.BackgroundWorker backgroundWorkerLoadBackground;
     }
 }
 
