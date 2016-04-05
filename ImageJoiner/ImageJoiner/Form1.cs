@@ -9,6 +9,7 @@ using ImageJoiner.CustomExceptions;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Drawing.Imaging;
+using System.Diagnostics;
 
 namespace ImageJoiner
 {
@@ -115,6 +116,131 @@ namespace ImageJoiner
         #endregion
         #region Event handlers
         /// <summary>
+        /// Rozpoczyna zapis obrazu do pliku
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonSaveImage_Click(object sender, EventArgs e)
+        {
+            if (listViewImages.Items.Count == 0)
+            {
+                MessageBox.Show("There are no images to save");
+            }
+            else
+            {
+                Size imageToSaveSize = AskForDimensions();
+                if (imageToSaveSize.Width > 0 && imageToSaveSize.Height > 0)
+                {
+                    if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                    {
+                        Tuple<Size, string> imageToSaveInfo = new Tuple<Size, string>(imageToSaveSize, saveFileDialog1.FileName);
+                        progressBarSaveImage.Visible = true;
+                        progressBarSaveImage.Minimum = 1;
+                        progressBarSaveImage.Maximum = tempItems.Count;
+                        progressBarSaveImage.Value = 1;
+                        progressBarSaveImage.Step = 1;
+                        backgroundWorkerSaveImage.RunWorkerAsync(imageToSaveInfo);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Zapisuje obraz do pliku w tle
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void backgroundWorkerSaveImage_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
+        {
+            var imageToSaveInfo = e.Argument as Tuple<Size, string>;
+            string filename = imageToSaveInfo.Item2;
+            int imageWidth = imageToSaveInfo.Item1.Width / (MaxColumnNumber + 1);
+            int imageHeight = imageToSaveInfo.Item1.Height / (MaxRowNumber + 1);
+            Bitmap bitmapToFitWholeImages = new Bitmap(
+                imageWidth * (MaxColumnNumber + 1),
+                imageHeight * (MaxRowNumber + 1));
+            var graphics = Graphics.FromImage(bitmapToFitWholeImages);
+            Image tempImage = null;
+            Bitmap bitmapWithUserSize = null;
+            try
+            {
+                foreach (var image in tempItems)
+                {
+                    if (this.backgroundWorkerLoadBackground.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                    tempImage = Image.FromFile(image.Text);
+                    int imageRow = GetRowFromFileName(Path.GetFileNameWithoutExtension(image.Text));
+                    int imageColumn = GetColumnFromFileName(Path.GetFileNameWithoutExtension(image.Text));
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        imageColumn = maxColumnNumber - imageColumn;
+                    }
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XrightYup || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        imageRow = maxRowNumber - imageRow;
+                    }
+                    int imageX = imageColumn * imageWidth;
+                    int imageY = imageRow * imageHeight;
+                    var rectangle = new Rectangle(imageX, imageY, imageWidth, imageHeight);
+                    graphics.DrawImage(tempImage, rectangle);
+                    if (tempImage != null)
+                    {
+                        tempImage.Dispose();
+                        tempImage = null;
+                    }
+                    progressBarSaveImage.Invoke(new Action(() => progressBarSaveImage.PerformStep()));
+                }
+                bitmapWithUserSize = new Bitmap(bitmapToFitWholeImages, imageToSaveInfo.Item1.Width, imageToSaveInfo.Item1.Height);
+                bitmapWithUserSize.Save(filename);
+                this.Invoke(new Action(() =>
+                {
+                    MessageBox.Show(String.Format("Successfully saved image to {0}", filename));
+                }));
+            }
+            catch (InvalidOperationException ex)
+            {
+                Debug.Write(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                this.Invoke(new Action(() =>
+                {
+                    MessageBox.Show(ex.Message);
+                }));
+            }
+            finally
+            {
+                this.Invoke(new Action(() =>
+                {
+                    progressBarSaveImage.Visible = false;
+                }));
+                progressBarSaveImage.Invoke(new Action(() => progressBarSaveImage.Visible = false));
+                if (graphics != null)
+                {
+                    graphics = null;
+                }
+                if (tempImage != null)
+                {
+                    tempImage.Dispose();
+                    tempImage = null;
+                }
+                if (imageToSaveInfo != null) imageToSaveInfo = null;
+                if (bitmapToFitWholeImages != null)
+                {
+                    bitmapToFitWholeImages.Dispose();
+                    bitmapToFitWholeImages = null;
+                }
+                if (bitmapWithUserSize != null)
+                {
+                    bitmapWithUserSize.Dispose();
+                    bitmapWithUserSize = null;
+                }
+            }
+        }
+        /// <summary>
         /// Zdarzenie, które ma miejsce gdy użytkownik przeciągnię jeden lub więcej plików na listę, ale jeszcze nie upuści ich.
         /// Wyświetla ikonkę informującą o tym, czy pliki można upuścić lub nie.
         /// </summary>
@@ -183,11 +309,11 @@ namespace ImageJoiner
                         smallImageHeight = tempImage.Height;
                         tempImage.Dispose();
                         tempImage = null;
-                        progressBar.Visible = true;
-                        progressBar.Minimum = 1;
-                        progressBar.Maximum = filesCount;
-                        progressBar.Value = 1;
-                        progressBar.Step = 1;
+                        progressBarLoadImages.Visible = true;
+                        progressBarLoadImages.Minimum = 1;
+                        progressBarLoadImages.Maximum = filesCount;
+                        progressBarLoadImages.Value = 1;
+                        progressBarLoadImages.Step = 1;
                         int neededProcessors = 0;
                         int numberOfImagesPerCore = 0;
                         int remainedImages = 0;
@@ -265,6 +391,14 @@ namespace ImageJoiner
                     tempImage = Image.FromFile(image.Text);
                     int imageRow = GetRowFromFileName(Path.GetFileNameWithoutExtension(image.Text));
                     int imageColumn = GetColumnFromFileName(Path.GetFileNameWithoutExtension(image.Text));
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        imageColumn = maxColumnNumber - imageColumn;
+                    }
+                    if (rowAndColumnNumeration == RowAndColumnNumeration.XrightYup || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                    {
+                        imageRow = maxRowNumber - imageRow;
+                    }
                     int imageX = imageColumn * imageWidth;
                     int imageY = imageRow * imageHeight;
                     var rectangle = new Rectangle(imageX, imageY, imageWidth, imageHeight);
@@ -286,7 +420,7 @@ namespace ImageJoiner
             }
             catch (InvalidOperationException ex)
             {
-                
+                Debug.Write(ex.Message);
             }
             catch (Exception ex)
             {
@@ -424,6 +558,65 @@ namespace ImageJoiner
         #endregion
         #region Helper methods
         /// <summary>
+        /// Otwiera formatkę z pytaniem o wymiary obrazu do zapisu.
+        /// </summary>
+        /// <returns></returns>
+        public Size AskForDimensions()
+        {
+            Form prompt = new Form()
+            {
+                Width = 400,
+                Height = 120,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = "Please specify the image dimensions in px",
+                StartPosition = FormStartPosition.CenterScreen
+            };
+            int width = 0;
+            int height = 0;
+            Label labelWidth = new Label() { Left = 50, Top = 20, Text = "Width:" };
+            Label labelHeight = new Label() { Left = 50, Top = 50, Text = "Height:" };
+            TextBox textBoxWidth = new TextBox() { Left = 100, Top = 20, Width = 40 };
+            TextBox textBoxHeight = new TextBox() { Left = 100, Top = 50, Width = 40 };
+            Button confirmation = new Button() { Text = "OK", Left = 150, Width = 200, Height = 50, Top = 20, DialogResult = DialogResult.OK };
+            confirmation.Click += (sender, e) => { prompt.Close(); };
+            prompt.Controls.Add(textBoxWidth);
+            prompt.Controls.Add(textBoxHeight);
+            prompt.Controls.Add(confirmation);
+            prompt.Controls.Add(labelWidth);
+            prompt.Controls.Add(labelHeight);
+            prompt.AcceptButton = confirmation;
+            var dialogResult = prompt.ShowDialog();
+            bool isWidthNumeric = int.TryParse(textBoxWidth.Text, out width);
+            bool isHeightNumeric = int.TryParse(textBoxHeight.Text, out height);
+            if (dialogResult == DialogResult.OK)
+            {
+                if (isWidthNumeric && isHeightNumeric)
+                {
+                    if (width > MaxWidth || height > MaxHeight)
+                    {
+                        MessageBox.Show("Both dimensions must be less or equal than whole image combined");
+                        return Size.Empty;
+                    }
+                    // Każdy pixel w nieskompresowanym obrazie ma 3B. Jeżeli rozmiar nieskompresowanego obrazu byłby większy od 100MB to zwróć pusty rozmiar.
+                    if (width * height * 3 > 1024 * 1024 * 100)
+                    {
+                        MessageBox.Show(String.Format("Width * Height * 3 should be less or equal than {0}", 1024 * 1024 * 100));
+                        return Size.Empty;
+                    }
+                    else
+                    {
+                        return new Size(width, height);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Both dimensions must be numeric");
+                    return Size.Empty;
+                }
+            }
+            return Size.Empty;
+        }
+        /// <summary>
         /// Formatka, która pyta o sposób numeracji obrazków
         /// </summary>
         private void AskForRowAndColumnNumeration()
@@ -459,7 +652,7 @@ namespace ImageJoiner
                     threads.Clear();
                     threads = null;
                 }
-                progressBar.Invoke(new Action(() =>
+                progressBarLoadImages.Invoke(new Action(() =>
                 {
                     if (droppedImagesSuccessfulllyLoaded)
                     {
@@ -486,7 +679,7 @@ namespace ImageJoiner
                     tempMaxColumnNumber = 0;
                     tempMaxWidth = 0;
                     tempMaxHeight = 0;
-                    progressBar.Visible = false;
+                    progressBarLoadImages.Visible = false;
                 }));
             }
                                     );
@@ -544,7 +737,7 @@ namespace ImageJoiner
                         tempItems.Add(item);
                     }));
                     if (item != null) item = null;
-                    progressBar.Invoke(new Action(() => progressBar.PerformStep()));
+                    progressBarLoadImages.Invoke(new Action(() => progressBarLoadImages.PerformStep()));
                 }
                 lock (finallImageVariablesLock)
                 {
