@@ -28,10 +28,8 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
             this.listViewImages = new System.Windows.Forms.ListView();
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.imagesList = new System.Windows.Forms.ImageList(this.components);
             this.pictureBoxFinallImage = new System.Windows.Forms.PictureBox();
             this.buttonJoinImages = new System.Windows.Forms.Button();
             this.buttonRemoveImages = new System.Windows.Forms.Button();
@@ -58,8 +56,7 @@
             this.columnHeader1});
             this.listViewImages.Location = new System.Drawing.Point(13, 12);
             this.listViewImages.Name = "listViewImages";
-            this.listViewImages.Size = new System.Drawing.Size(228, 361);
-            this.listViewImages.SmallImageList = this.imagesList;
+            this.listViewImages.Size = new System.Drawing.Size(228, 44);
             this.listViewImages.TabIndex = 0;
             this.listViewImages.UseCompatibleStateImageBehavior = false;
             this.listViewImages.View = System.Windows.Forms.View.SmallIcon;
@@ -69,12 +66,6 @@
             // columnHeader1
             // 
             this.columnHeader1.Width = -1;
-            // 
-            // imagesList
-            // 
-            this.imagesList.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
-            this.imagesList.ImageSize = new System.Drawing.Size(16, 16);
-            this.imagesList.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // pictureBoxFinallImage
             // 
@@ -94,7 +85,7 @@
             // 
             // buttonJoinImages
             // 
-            this.buttonJoinImages.Location = new System.Drawing.Point(13, 379);
+            this.buttonJoinImages.Location = new System.Drawing.Point(14, 62);
             this.buttonJoinImages.Name = "buttonJoinImages";
             this.buttonJoinImages.Size = new System.Drawing.Size(228, 23);
             this.buttonJoinImages.TabIndex = 2;
@@ -104,7 +95,7 @@
             // 
             // buttonRemoveImages
             // 
-            this.buttonRemoveImages.Location = new System.Drawing.Point(12, 408);
+            this.buttonRemoveImages.Location = new System.Drawing.Point(13, 91);
             this.buttonRemoveImages.Name = "buttonRemoveImages";
             this.buttonRemoveImages.Size = new System.Drawing.Size(228, 23);
             this.buttonRemoveImages.TabIndex = 3;
@@ -114,16 +105,16 @@
             // 
             // progressBarLoadImages
             // 
-            this.progressBarLoadImages.Location = new System.Drawing.Point(80, 180);
+            this.progressBarLoadImages.Location = new System.Drawing.Point(14, 62);
             this.progressBarLoadImages.Name = "progressBarLoadImages";
-            this.progressBarLoadImages.Size = new System.Drawing.Size(100, 23);
+            this.progressBarLoadImages.Size = new System.Drawing.Size(227, 23);
             this.progressBarLoadImages.TabIndex = 4;
             this.progressBarLoadImages.Visible = false;
             // 
             // labelColumns
             // 
             this.labelColumns.AutoSize = true;
-            this.labelColumns.Location = new System.Drawing.Point(134, 497);
+            this.labelColumns.Location = new System.Drawing.Point(135, 180);
             this.labelColumns.Name = "labelColumns";
             this.labelColumns.Size = new System.Drawing.Size(59, 13);
             this.labelColumns.TabIndex = 7;
@@ -132,7 +123,7 @@
             // labelRows
             // 
             this.labelRows.AutoSize = true;
-            this.labelRows.Location = new System.Drawing.Point(134, 484);
+            this.labelRows.Location = new System.Drawing.Point(135, 167);
             this.labelRows.Name = "labelRows";
             this.labelRows.Size = new System.Drawing.Size(46, 13);
             this.labelRows.TabIndex = 6;
@@ -141,7 +132,7 @@
             // labelWidth
             // 
             this.labelWidth.AutoSize = true;
-            this.labelWidth.Location = new System.Drawing.Point(13, 484);
+            this.labelWidth.Location = new System.Drawing.Point(14, 167);
             this.labelWidth.Name = "labelWidth";
             this.labelWidth.Size = new System.Drawing.Size(47, 13);
             this.labelWidth.TabIndex = 5;
@@ -150,7 +141,7 @@
             // labelHeight
             // 
             this.labelHeight.AutoSize = true;
-            this.labelHeight.Location = new System.Drawing.Point(13, 497);
+            this.labelHeight.Location = new System.Drawing.Point(14, 180);
             this.labelHeight.Name = "labelHeight";
             this.labelHeight.Size = new System.Drawing.Size(50, 13);
             this.labelHeight.TabIndex = 8;
@@ -159,7 +150,7 @@
             // labelFinalImageInfo
             // 
             this.labelFinalImageInfo.AutoSize = true;
-            this.labelFinalImageInfo.Location = new System.Drawing.Point(13, 468);
+            this.labelFinalImageInfo.Location = new System.Drawing.Point(14, 151);
             this.labelFinalImageInfo.Name = "labelFinalImageInfo";
             this.labelFinalImageInfo.Size = new System.Drawing.Size(83, 13);
             this.labelFinalImageInfo.TabIndex = 9;
@@ -167,7 +158,7 @@
             // 
             // pictureBoxPreview
             // 
-            this.pictureBoxPreview.Location = new System.Drawing.Point(13, 514);
+            this.pictureBoxPreview.Location = new System.Drawing.Point(14, 197);
             this.pictureBoxPreview.Name = "pictureBoxPreview";
             this.pictureBoxPreview.Size = new System.Drawing.Size(228, 91);
             this.pictureBoxPreview.TabIndex = 10;
@@ -181,7 +172,7 @@
             // 
             // buttonSaveImage
             // 
-            this.buttonSaveImage.Location = new System.Drawing.Point(13, 438);
+            this.buttonSaveImage.Location = new System.Drawing.Point(14, 121);
             this.buttonSaveImage.Name = "buttonSaveImage";
             this.buttonSaveImage.Size = new System.Drawing.Size(227, 23);
             this.buttonSaveImage.TabIndex = 11;
@@ -201,7 +192,7 @@
             // 
             // progressBarSaveImage
             // 
-            this.progressBarSaveImage.Location = new System.Drawing.Point(12, 438);
+            this.progressBarSaveImage.Location = new System.Drawing.Point(13, 121);
             this.progressBarSaveImage.Name = "progressBarSaveImage";
             this.progressBarSaveImage.Size = new System.Drawing.Size(228, 23);
             this.progressBarSaveImage.TabIndex = 12;
@@ -238,7 +229,6 @@
         #endregion
 
         private System.Windows.Forms.ListView listViewImages;
-        private System.Windows.Forms.ImageList imagesList;
         private System.Windows.Forms.PictureBox pictureBoxFinallImage;
         private System.Windows.Forms.ColumnHeader columnHeader1;
         private System.Windows.Forms.Button buttonJoinImages;
