@@ -22,7 +22,6 @@ namespace ImageJoiner
     }
     public partial class Form1 : Form
     {
-        private bool validData;
         private int smallImageWidth = 0;
         private int smallImageHeight = 0;
         private int currentRow = 0;
@@ -53,6 +52,7 @@ namespace ImageJoiner
         int tempMaxWidth = 0;
         int imagesCount = 0;
         string directory = "";
+        string[] filesArray;
         #region Accessors
 
         public int MaxWidth
@@ -175,13 +175,29 @@ namespace ImageJoiner
                     for (int j = 0; j <= MaxColumnNumber; ++j)
                     {
                         fileNameToFind = GetFileNameBasedOnRowAndColumn(i, j);
-                        imageLocation = System.IO.Directory.GetFiles(directory + @"\", fileNameToFind + @".*").First();
+                        if (File.Exists(Directory.GetFiles(directory, fileNameToFind + @".*").FirstOrDefault()))
+                        {
+                            imageLocation = Directory.GetFiles(directory + @"\", fileNameToFind + @".*").FirstOrDefault();
+                        }
+                        else
+                        {
+                            continue;
+                        }
                         if (this.backgroundWorkerLoadBackground.CancellationPending)
                         {
                             e.Cancel = true;
                             return;
                         }
+                        var extension = Path.GetExtension(imageLocation);
+                        if (extension != ".jpg" && extension != ".png" && extension != ".bmp" && extension != ".TIF")
+                        {
+                            continue;
+                        }
                         tempImage = Image.FromFile(imageLocation);
+                        if ((tempImage.Height != smallImageHeight) || (tempImage.Width != smallImageWidth))
+                        {
+                            continue;
+                        }
                         int imageRow = GetRowFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
                         int imageColumn = GetColumnFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
                         if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
@@ -259,37 +275,7 @@ namespace ImageJoiner
         /// <param name="e"></param>
         private void listViewImages_DragEnter(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files.Length != 0)
-                {
-                    validData = true;
-                }
-                else
-                {
-                    validData = false;
-                }
-                foreach (string file in files)
-                {
-                    FileInfo fi = new FileInfo(file);
-                    if (fi.Extension != ".jpg" && fi.Extension != ".png" && fi.Extension != ".bmp" && fi.Extension != ".TIF")
-                    {
-                        validData = false;
-                    }
-
-                    if (validData)
-                    {
-                        e.Effect = DragDropEffects.Copy;
-                    }
-                    else
-                        e.Effect = DragDropEffects.None;
-                }
-            }
-            else
-            {
-                e.Effect = DragDropEffects.None;
-            }
+            e.Effect = DragDropEffects.Copy;
         }
 
         /// <summary>
@@ -301,83 +287,40 @@ namespace ImageJoiner
         /// <param name="e"></param>
         private void listViewImages_DragDrop(object sender, DragEventArgs e)
         {
+            e.Effect = DragDropEffects.None;
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                if (validData)
-                {
-                    if (imagesCount == 0) AskForRowAndColumnNumeration();
-                    string[] filesArray = (string[])e.Data.GetData(DataFormats.FileDrop);
-                    List<string> files = filesArray.ToList<string>();
-                    imagesCount = files.Count;
-                    try
-                    {
-                        Image tempImage = Image.FromFile(files[0]);
-                        directory = Path.GetDirectoryName(files[0]);
-                        listViewImages.Items.Clear();
-                        listViewImages.Items.Add(new ListViewItem("Loaded images from: " + directory));
-                        smallImageWidth = tempImage.Width;
-                        smallImageHeight = tempImage.Height;
-                        tempImage.Dispose();
-                        tempImage = null;
-                        progressBarLoadImages.Visible = true;
-                        progressBarLoadImages.Minimum = 1;
-                        progressBarLoadImages.Maximum = imagesCount;
-                        progressBarLoadImages.Value = 1;
-                        progressBarLoadImages.Step = 1;
-                        int neededProcessors = 0;
-                        int numberOfImagesPerCore = 0;
-                        int remainedImages = 0;
-                        tempMaxColumnNumber = MaxColumnNumber;
-                        tempMaxRowNumber = MaxRowNumber;
-                        tempMaxWidth = MaxWidth;
-                        tempMaxHeight = MaxHeight;
-                        if (tempItems == null) tempItems = new List<ListViewItem>();
-                        // Gdy liczba obrazow do zaladowania jest mala wykonaj wszystko na 1 rdzeniu, w przeciwnym wypadku użyj wszystkich rdzeni
-                        if (imagesCount <= Environment.ProcessorCount)
-                        {
-                            neededProcessors = 1;
-                            numberOfImagesPerCore = imagesCount;
-                            remainedImages = 0;
-                        }
-                        else
-                        {
-                            neededProcessors = Environment.ProcessorCount;
-                            numberOfImagesPerCore = imagesCount / Environment.ProcessorCount;
-                            remainedImages = imagesCount % Environment.ProcessorCount != 0 ? imagesCount % Environment.ProcessorCount : 0;
-                        }
-                        List<Thread> threads = new List<Thread>();
-                        droppedImagesSuccessfulllyLoaded = true;
-                        for (int i = 0; i < neededProcessors; ++i)
-                        {
-                            threads.Add(new Thread(new ParameterizedThreadStart(LoadDroppedImages)));
-                            if (i < neededProcessors - 1)
-                            {
-                                threads.Last().Start(files.GetRange(i * numberOfImagesPerCore, numberOfImagesPerCore));
-                            }
-                            else
-                            {
-                                threads.Last().Start(files.GetRange(i * numberOfImagesPerCore, numberOfImagesPerCore + remainedImages));
-                            }
-                        }
-                        GatherDataFromThreads(threads);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                    }
-                    finally
-                    {
-                        if (formAskForRowAndColumnNumeration != null)
-                        {
-                            formAskForRowAndColumnNumeration.Dispose();
-                            formAskForRowAndColumnNumeration = null;
-                        }
-                        if (files != null) files = null;
-                    }
-                }
+                RemoveAllImages();
+                backgroundWorkerGetDroppedImages.RunWorkerAsync(e);
             }
         }
 
+        /// <summary>
+        /// Pobiera upuszczone pliki do tablicy.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void backgroundWorkerGetDroppedImages_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
+        {
+            DragEventArgs args = e.Argument as DragEventArgs;
+            this.Invoke(new Action(() =>
+            {
+                progressBarGetDroppedImages.Visible = true;
+            }));
+
+            var thread = new Thread(() =>
+            {
+                filesArray = (string[])args.Data.GetData(DataFormats.FileDrop);
+            });
+
+            thread.Start();
+            thread.Join();
+            this.Invoke(new Action(() =>
+            {
+                progressBarGetDroppedImages.Visible = false;
+                CalculateFinalImageVariables();
+            }));
+        }
         /// <summary>
         /// Ładuje obrazki do podglądu.
         /// </summary>
@@ -387,48 +330,87 @@ namespace ImageJoiner
         {
             int imageWidth = previewImageBackground.Width / (MaxColumnNumber + 1);
             int imageHeight = previewImageBackground.Height / (MaxRowNumber + 1);
+            int skipColumns = 0;
+            int skipRows = 0;
+            int previousColumn = 0;
+            int previousRow = 0;
+            if (imageWidth == 0)
+            {
+                imageWidth = 1;
+                skipColumns = ((MaxColumnNumber + 1) / previewImageBackground.Width) + 1;
+            }
+            if (imageHeight == 0)
+            {
+                imageHeight = 1;
+                skipRows = ((MaxRowNumber + 1) / previewImageBackground.Height) + 1;
+            }
             var graphics = Graphics.FromImage(previewImageBackground);
             Image tempImage = null;
-            string fileNameToFind = "";
             string imageLocation = "";
             try
             {
                 for (int i = 0; i <= MaxRowNumber; ++i)
                 {
+                    if (skipRows != 0)
+                    {
+                        if ((i % skipRows == 0) && i != 0) continue;
+                    }
                     for (int j = 0; j <= MaxColumnNumber; ++j)
                     {
-                        fileNameToFind = GetFileNameBasedOnRowAndColumn(i, j);
-                        imageLocation = System.IO.Directory.GetFiles(directory + @"\", fileNameToFind + @".*").First();
+                        if (skipColumns != 0)
+                        {
+                            if ((j % skipColumns == 0) && j != 0) continue;
+                        }
+                        imageLocation = Directory.GetFiles(
+                            directory,
+                            GetFileNameBasedOnRowAndColumn(i > 0 ? previousRow + 1 : i, j > 0 ? previousColumn + 1 : j) + @".*").FirstOrDefault();
+                        if (File.Exists(imageLocation))
+                        {
+                            var extension = Path.GetExtension(imageLocation);
+                            if (extension != ".jpg" && extension != ".png" && extension != ".bmp" && extension != ".TIF")
+                            {
+                                previousColumn = j;
+                                continue;
+                            }
+                            tempImage = Image.FromFile(imageLocation);
+                            if ((tempImage.Width != smallImageWidth) || (tempImage.Height != smallImageHeight))
+                            {
+                                previousColumn = j;
+                                continue;
+                            }
+                            int imageRow = GetRowFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
+                            int imageColumn = GetColumnFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
+                            if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                            {
+                                imageColumn = maxColumnNumber - imageColumn;
+                            }
+                            if (rowAndColumnNumeration == RowAndColumnNumeration.XrightYup || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
+                            {
+                                imageRow = maxRowNumber - imageRow;
+                            }
+                            int imageX = imageColumn * imageWidth;
+                            int imageY = imageRow * imageHeight;
+                            var rectangle = new Rectangle(imageX, imageY, imageWidth, imageHeight);
+                            graphics.DrawImage(tempImage, rectangle);
+                            if (tempImage != null)
+                            {
+                                tempImage.Dispose();
+                                tempImage = null;
+                            }
+
+                        }
                         if (this.backgroundWorkerLoadBackground.CancellationPending)
                         {
                             e.Cancel = true;
                             return;
                         }
-                        tempImage = Image.FromFile(imageLocation);
-                        int imageRow = GetRowFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
-                        int imageColumn = GetColumnFromFileName(Path.GetFileNameWithoutExtension(imageLocation));
-                        if (rowAndColumnNumeration == RowAndColumnNumeration.XleftYdown || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
-                        {
-                            imageColumn = maxColumnNumber - imageColumn;
-                        }
-                        if (rowAndColumnNumeration == RowAndColumnNumeration.XrightYup || rowAndColumnNumeration == RowAndColumnNumeration.XleftYup)
-                        {
-                            imageRow = maxRowNumber - imageRow;
-                        }
-                        int imageX = imageColumn * imageWidth;
-                        int imageY = imageRow * imageHeight;
-                        var rectangle = new Rectangle(imageX, imageY, imageWidth, imageHeight);
-                        graphics.DrawImage(tempImage, rectangle);
-                        if (tempImage != null)
-                        {
-                            tempImage.Dispose();
-                            tempImage = null;
-                        }
                         this.Invoke(new Action(() =>
                         {
                             pictureBoxPreview.Invalidate();
                         }));
+                        previousColumn = j;
                     }
+                    previousRow = i;
                 }
                 if (graphics != null)
                 {
@@ -547,13 +529,15 @@ namespace ImageJoiner
         {
             if (previewImage != null)
             {
-                e.Graphics.Clear(Color.White);
+                e.Graphics.Clear(Color.Black);
                 if (previewImageBackground != null) e.Graphics.DrawImage(previewImageBackground, 0, 0, pictureBoxPreview.Width, pictureBoxPreview.Height);
                 Pen blackPen = new Pen(Color.Red, 1);
                 int rectangleWidth = maxWidth > pictureBoxFinallImage.Width ?
                     pictureBoxFinallImage.Width * pictureBoxPreview.Width / maxWidth : pictureBoxPreview.Width - 1;
                 int rectangleHeight = maxHeight > pictureBoxFinallImage.Height ?
                     pictureBoxFinallImage.Height * pictureBoxPreview.Height / maxHeight : pictureBoxPreview.Height - 1;
+                if (rectangleWidth == 0) rectangleWidth = 1;
+                if (rectangleHeight == 0) rectangleHeight = 1;
                 int rectangleX = pictureBoxPositionRelatedToWholePicture.X * pictureBoxPreview.Width / maxWidth;
                 int rectangleY = pictureBoxPositionRelatedToWholePicture.Y * pictureBoxPreview.Height / maxHeight;
                 Rectangle rect = new Rectangle(rectangleX, rectangleY, rectangleWidth, rectangleHeight);
@@ -643,7 +627,7 @@ namespace ImageJoiner
         /// <summary>
         /// Formatka, która pyta o sposób numeracji obrazków
         /// </summary>
-        private void AskForRowAndColumnNumeration()
+        private bool AskForRowAndColumnNumeration()
         {
             formAskForRowAndColumnNumeration = new FormAskForRowAndColumnNumeration();
             formAskForRowAndColumnNumeration.StartPosition = FormStartPosition.Manual;
@@ -652,12 +636,14 @@ namespace ImageJoiner
             if (result == DialogResult.OK)
             {
                 this.rowAndColumnNumeration = formAskForRowAndColumnNumeration.rowAndColumnNumeration;
+                formAskForRowAndColumnNumeration.Close();
+                return true;
             }
             else
             {
-                this.rowAndColumnNumeration = RowAndColumnNumeration.XrightYdown;
+                formAskForRowAndColumnNumeration.Close();
+                return false;
             }
-            formAskForRowAndColumnNumeration.Close();
         }
         /// <summary>
         /// Ładuje dane wytworzone przez watki do listy i rozpoczyna ładować je do podglądu.
@@ -712,40 +698,37 @@ namespace ImageJoiner
         /// <param name="startingIndexOnList"></param>
         private void LoadDroppedImages(object obj)
         {
-            List<string> imagesToLoad = (List<string>)obj;
+            var tuple = (Tuple<string[], int, int>)obj;
+            string[] imagesToLoad = tuple.Item1;
+            int startingIndex = tuple.Item2;
+            int endingIndex = tuple.Item3;
             int tempRowNumber = 0;
             int tempColumnNumber = 0;
             int localTempMaxColumnNumber = 0;
             int localTempMaxRowNumber = 0;
+            string lastFileName = "";
+            int comparisonResult = 0;
             try
             {
-                foreach (string image in imagesToLoad)
+                for (int i = startingIndex; i <= endingIndex; ++i)
                 {
-                    if (!ValidateFileName(Path.GetFileNameWithoutExtension(image)))
-                    {
-                        throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n YnnnnXnnnn.extension (for example Y0000X0000.png)", Path.GetFileName(image)));
-                    }
-                    var tempImage = Image.FromFile(image);
-                    if ((tempImage.Height != smallImageHeight) || (tempImage.Width != smallImageWidth))
-                    {
-                        throw new ImagesDifferentSizeExcpetion("Images are not the same size");
-                    }
-                    if (tempImage != null)
-                    {
-                        tempImage.Dispose();
-                        tempImage = null;
-                    }
-                    tempRowNumber = this.GetRowFromFileName(Path.GetFileNameWithoutExtension(image));
-                    tempColumnNumber = this.GetColumnFromFileName(Path.GetFileNameWithoutExtension(image));
-                    if (localTempMaxRowNumber < tempRowNumber)
-                    {
-                        localTempMaxRowNumber = tempRowNumber;
-                    }
-                    if (localTempMaxColumnNumber < tempColumnNumber)
-                    {
-                        localTempMaxColumnNumber = tempColumnNumber;
-                    }
+                    comparisonResult = String.Compare(imagesToLoad[i], lastFileName);
+                    if (comparisonResult > 0) lastFileName = imagesToLoad[i];
                     progressBarLoadImages.Invoke(new Action(() => progressBarLoadImages.PerformStep()));
+                }
+                if (!ValidateFileName(Path.GetFileNameWithoutExtension(lastFileName)))
+                {
+                    throw new WrongFileNameException(String.Format("File \"{0}\" does not match the following expression:\n YnnnnXnnnn.extension (for example Y0000X0000.png)", Path.GetFileName(lastFileName)));
+                }
+                tempRowNumber = this.GetRowFromFileName(Path.GetFileNameWithoutExtension(lastFileName));
+                tempColumnNumber = this.GetColumnFromFileName(Path.GetFileNameWithoutExtension(lastFileName));
+                if (localTempMaxRowNumber < tempRowNumber)
+                {
+                    localTempMaxRowNumber = tempRowNumber;
+                }
+                if (localTempMaxColumnNumber < tempColumnNumber)
+                {
+                    localTempMaxColumnNumber = tempColumnNumber;
                 }
                 lock (finallImageVariablesLock)
                 {
@@ -810,6 +793,8 @@ namespace ImageJoiner
             previewImage = new Bitmap(pictureBoxPreview.Width, pictureBoxPreview.Height);
             int backgroundWidth = (previewImage.Width / (MaxColumnNumber + 1)) * (MaxColumnNumber + 1);
             int backgroundHeight = (previewImage.Height / (MaxRowNumber + 1)) * (MaxRowNumber + 1);
+            if (backgroundHeight == 0) backgroundHeight = previewImage.Height;
+            if (backgroundWidth == 0) backgroundWidth = previewImage.Width;
             previewImageBackground = new Bitmap(backgroundWidth, backgroundHeight);
         }
 
@@ -853,6 +838,11 @@ namespace ImageJoiner
                 foreach (string image in files)
                 {
                     // Pozyskiwanie numeru wiersza i kolumny z nazwy pliku
+                    var extension = Path.GetExtension(image);
+                    if (extension != ".jpg" && extension != ".png" && extension != ".bmp" && extension != ".TIF")
+                    {
+                        continue;
+                    }
                     fileNameWithoutExtension = Path.GetFileNameWithoutExtension(image);
                     row = GetRowFromFileName(fileNameWithoutExtension);
                     column = GetColumnFromFileName(fileNameWithoutExtension);
@@ -867,6 +857,7 @@ namespace ImageJoiner
 
                     // Obliczanie pozycji małego obrazka w buforze i dodanie go do tymczasowej listy
                     Bitmap bitmap = new Bitmap(image);
+                    if (bitmap.Width != smallImageWidth || bitmap.Height != smallImageHeight) continue;
                     xPosition = (column - columnShift) * bitmap.Width;
                     yPosition = (row - rowShift) * bitmap.Height;
                     Tuple<Image, Rectangle> imageWithRectangle = new Tuple<Image, Rectangle>(bitmap, new Rectangle(xPosition, yPosition, bitmap.Width, bitmap.Height));
@@ -1051,7 +1042,10 @@ namespace ImageJoiner
                 for (int j = startingColumn; j <= endingColumn; ++j)
                 {
                     fileNameToFind = GetFileNameBasedOnRowAndColumn(i, j);
-                    fileNames.Add(System.IO.Directory.GetFiles(directory, fileNameToFind + @".*").First());
+                    if (File.Exists(System.IO.Directory.GetFiles(directory, fileNameToFind + @".*").FirstOrDefault()))
+                    {
+                        fileNames.Add(System.IO.Directory.GetFiles(directory, fileNameToFind + @".*").FirstOrDefault());
+                    }
                 }
             }
             return fileNames;
@@ -1149,13 +1143,87 @@ namespace ImageJoiner
         }
 
         /// <summary>
+        /// Oblicza zmienne dotyczące końcowego obrazu
+        /// </summary>
+        private void CalculateFinalImageVariables()
+        {
+            if (AskForRowAndColumnNumeration())
+            {
+                imagesCount = filesArray.Count();
+                try
+                {
+                    Image tempImage = Image.FromFile(filesArray[0]);
+                    directory = Path.GetDirectoryName(filesArray[0]);
+                    listViewImages.Items.Clear();
+                    listViewImages.Items.Add(new ListViewItem("Loaded images from: " + directory));
+                    smallImageWidth = tempImage.Width;
+                    smallImageHeight = tempImage.Height;
+                    tempImage.Dispose();
+                    tempImage = null;
+                    progressBarLoadImages.Maximum = imagesCount;
+                    progressBarLoadImages.Visible = true;
+                    progressBarLoadImages.Minimum = 1;
+                    progressBarLoadImages.Value = 1;
+                    progressBarLoadImages.Step = 1;
+                    int neededProcessors = 0;
+                    int numberOfImagesPerCore = 0;
+                    int remainedImages = 0;
+                    tempMaxColumnNumber = MaxColumnNumber;
+                    tempMaxRowNumber = MaxRowNumber;
+                    tempMaxWidth = MaxWidth;
+                    tempMaxHeight = MaxHeight;
+                    if (tempItems == null) tempItems = new List<ListViewItem>();
+                    // Gdy liczba obrazow do zaladowania jest mala wykonaj wszystko na 1 rdzeniu, w przeciwnym wypadku użyj wszystkich rdzeni
+                    if (imagesCount <= Environment.ProcessorCount)
+                    {
+                        neededProcessors = 1;
+                        numberOfImagesPerCore = imagesCount;
+                        remainedImages = 0;
+                    }
+                    else
+                    {
+                        neededProcessors = Environment.ProcessorCount;
+                        numberOfImagesPerCore = imagesCount / Environment.ProcessorCount;
+                        remainedImages = imagesCount % Environment.ProcessorCount != 0 ? imagesCount % Environment.ProcessorCount : 0;
+                    }
+                    List<Thread> threads = new List<Thread>();
+                    droppedImagesSuccessfulllyLoaded = true;
+                    for (int i = 0; i < neededProcessors; ++i)
+                    {
+                        threads.Add(new Thread(new ParameterizedThreadStart(LoadDroppedImages)));
+                        if (i < neededProcessors - 1)
+                        {
+                            threads.Last().Start(new Tuple<string[], int, int>(filesArray, i * numberOfImagesPerCore, i * numberOfImagesPerCore + numberOfImagesPerCore - 1));
+                        }
+                        else
+                        {
+                            threads.Last().Start(new Tuple<string[], int, int>(filesArray, i * numberOfImagesPerCore, i * numberOfImagesPerCore + numberOfImagesPerCore + remainedImages - 1));
+                        }
+                    }
+                    GatherDataFromThreads(threads);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+                finally
+                {
+                    if (formAskForRowAndColumnNumeration != null)
+                    {
+                        formAskForRowAndColumnNumeration.Dispose();
+                        formAskForRowAndColumnNumeration = null;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Czyści listę obrazów, bufor i zmienne pomocnicze.
         /// </summary>
         private void RemoveAllImages()
         {
             if (listViewImages.Items.Count > 0)
             {
-                listViewImages.Items.Clear();
                 if (bufferImage != null)
                 {
                     bufferImage.Dispose();
@@ -1195,6 +1263,7 @@ namespace ImageJoiner
                 bufferRows = 0;
                 currentRow = 0;
                 currentColumn = 0;
+                imagesCount = 0;
                 MaxWidth = 0;
                 MaxHeight = 0;
                 MaxRowNumber = 0;
@@ -1203,8 +1272,11 @@ namespace ImageJoiner
                 tempMaxColumnNumber = 0;
                 tempMaxWidth = 0;
                 tempMaxHeight = 0;
-                imagesCount = 0;
                 directory = "";
+                if (filesArray != null)
+                {
+                    filesArray = null;
+                }
                 if (tempItems != null)
                 {
                     tempItems.Clear();

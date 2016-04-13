@@ -45,6 +45,8 @@
             this.backgroundWorkerSaveImage = new System.ComponentModel.BackgroundWorker();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.progressBarSaveImage = new System.Windows.Forms.ProgressBar();
+            this.progressBarGetDroppedImages = new System.Windows.Forms.ProgressBar();
+            this.backgroundWorkerGetDroppedImages = new System.ComponentModel.BackgroundWorker();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxFinallImage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxPreview)).BeginInit();
             this.SuspendLayout();
@@ -198,11 +200,25 @@
             this.progressBarSaveImage.TabIndex = 12;
             this.progressBarSaveImage.Visible = false;
             // 
+            // progressBarGetDroppedImages
+            // 
+            this.progressBarGetDroppedImages.Location = new System.Drawing.Point(13, 13);
+            this.progressBarGetDroppedImages.Name = "progressBarGetDroppedImages";
+            this.progressBarGetDroppedImages.Size = new System.Drawing.Size(228, 43);
+            this.progressBarGetDroppedImages.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+            this.progressBarGetDroppedImages.TabIndex = 13;
+            this.progressBarGetDroppedImages.Visible = false;
+            // 
+            // backgroundWorkerGetDroppedImages
+            // 
+            this.backgroundWorkerGetDroppedImages.DoWork += new System.ComponentModel.DoWorkEventHandler(this.backgroundWorkerGetDroppedImages_DoWork);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(908, 617);
+            this.Controls.Add(this.progressBarGetDroppedImages);
             this.Controls.Add(this.progressBarSaveImage);
             this.Controls.Add(this.buttonSaveImage);
             this.Controls.Add(this.pictureBoxPreview);
@@ -245,6 +261,8 @@
         private System.ComponentModel.BackgroundWorker backgroundWorkerSaveImage;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.ProgressBar progressBarSaveImage;
+        private System.Windows.Forms.ProgressBar progressBarGetDroppedImages;
+        private System.ComponentModel.BackgroundWorker backgroundWorkerGetDroppedImages;
     }
 }
 
